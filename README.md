@@ -1,90 +1,96 @@
 # Payroll
 
-This repository contains payroll-related services. Depending on what you’re running locally, use one of the setups below.
+A playground/monorepo for a payroll platform: a FastAPI backend, an Express-based setup wizard, and a lightweight static “console” UI. Supporting docs cover security, feature requirements, and architecture.
 
-## Security Architecture
-
-See docs/SECURITY_DESIGN.md for the authentication, MFA, RBAC, encryption, audit logging, and session control plan (SOC 2 Type II–oriented).
-
-## Feature Overview
-
-- Generate paystub PDFs per payroll run with earning codes, taxes, deductions, PTO balances, and YTD totals.
-- Provide an employee portal for secure, logged access to historical paystubs.
-- Implement W-2 generation using stored annual totals with admin downloads and employee self-service access.
-
-See docs/payroll_features.md for detailed requirements covering document content, delivery, security, and compliance expectations.
+## Docs (start here)
+- Security: `docs/SECURITY_DESIGN.md`
+- Feature requirements (paystubs/W-2, delivery, compliance): `docs/payroll_features.md`
+- Payroll run design: `docs/payroll_run_design.md`
+- Architecture notes: `docs/ARCHITECTURE.md`
+- Feature plan: `FEATURE_PLAN.md`
 
 ---
 
-## Option A: Payroll Platform (FastAPI)
+## Quickstart
 
-A modular FastAPI backend for payroll operations with domain-driven routers (auth, employees, time, payroll, payments, reporting), PostgreSQL migrations, and observability baked in.
+### 1) Backend API (FastAPI + Postgres + migrations)
+Runs the API, Postgres, and observability tooling via Docker Compose (uses `docker-compose.yml`).
 
-## Stack
-- API: FastAPI + Uvicorn
-- DB: PostgreSQL with Alembic migrations and seed script
-- Observability: Structlog JSON logs, OTLP traces/metrics, optional Sentry errors
-- Containers: Docker Compose for API, Postgres, and OpenTelemetry Collector + Jaeger
-- Optional static hosting: AWS S3 + CloudFront template (infra/serverless-static)
+```bash
+docker compose up --build
+```
 
-## Getting started
-1. Copy an env file for your tier:
-   ~~~bash
-   cp .env.dev .env
-   ~~~
-2. Start the stack:
-   ~~~bash
-   docker-compose up --build
-   ~~~
-3. Run database migrations (in another shell):
-   ~~~bash
-   docker-compose exec api alembic upgrade head
-   ~~~
-4. Seed baseline data (optional):
-   ~~~bash
-   docker-compose exec api python -c "from app.seed.seed_data import seed; import contextlib; from app.db.session import SessionLocal; with contextlib.closing(SessionLocal()) as session: seed(session)"
-   ~~~
+In another shell, run migrations:
 
-API will be available at http://localhost:8000 with endpoints for /auth, /employees, /time, /payroll, /payments, /reports, and /health.
+```bash
+docker compose exec api alembic upgrade head
+```
 
-## Scripts
-- scripts/backup.sh [dir] – run a Postgres backup using PAYROLL_DATABASE_URL.
-- scripts/restore.sh <file> – restore a backup.
+API is typically at:
+- http://localhost:8000  
+Health check:
+- http://localhost:8000/health
 
-## CI
-GitHub Actions workflow runs Ruff linting and pytest using Python 3.11.
+Notes:
+- Backup/restore helpers: `scripts/backup.sh` and `scripts/restore.sh` (use `PAYROLL_DATABASE_URL`).
 
 ---
 
-## Option B: Payroll Setup Wizard (Express)
+### 2) Payroll Setup Wizard (Express + static UI)
+Runs the multi-step setup wizard served from `public/`.
 
-This project provides a lightweight payroll company setup wizard backed by an Express API. It validates company data (including EIN, addresses, tax jurisdictions, and pay schedules), stores draft progress, and enforces completion before payroll actions are enabled.
-
-## Getting started
-~~~bash
+```bash
 npm install
 npm run start
-~~~
+```
 
-The server runs on http://localhost:3000 and serves the multi-step wizard UI from /public.
+Wizard server:
+- http://localhost:3000
 
-### Environment
-- ADMIN_TOKEN (optional): token required for admin endpoints. Defaults to changeme.
-- PORT (optional): HTTP port (defaults to 3000).
+Environment:
+- `ADMIN_TOKEN` (optional): admin token for protected endpoints (default: `changeme`)
+- `PORT` (optional): server port (default: `3000`)
 
-## API highlights
-- GET /api/setup – fetch current setup and completion status.
-- GET /api/payroll/status – returns whether payroll is enabled (only after setup completion).
-- GET /api/metadata – client metadata such as states and EIN pattern.
-- POST /api/admin/progress – (admin) save draft progress; emits an audit event.
-- POST /api/admin/setup – (admin) validate and save the completed setup; emits an audit event.
-- GET /api/admin/audit – (admin) view audit entries.
+API highlights:
+- `GET /api/setup` — fetch current setup + completion status
+- `GET /api/payroll/status` — whether payroll actions are enabled (post-setup)
+- `GET /api/metadata` — client metadata (states, EIN pattern)
+- `POST /api/admin/progress` — save draft progress (admin; emits audit event)
+- `POST /api/admin/setup` — validate + save completed setup (admin; emits audit event)
+- `GET /api/admin/audit` — view audit entries (admin)
 
-All admin endpoints require the X-Admin-Token header to match ADMIN_TOKEN.
+Admin endpoints require `X-Admin-Token: <ADMIN_TOKEN>`.
 
-## Running checks
-~~~bash
+Run checks:
+```bash
 npm test
-~~~
+```
 
-The test script performs a quick schema validation and storage smoke test.
+---
+
+### 3) Static Console (Nginx container)
+A simple static UI served by Nginx (files live in `frontend/console/`).
+
+```bash
+docker compose -f compose.console.yaml up --build
+```
+
+Console:
+- http://localhost:8080
+
+---
+
+## Repo layout (high level)
+
+- `backend/` — FastAPI app code (routers, models, config, observability)
+- `docker-compose.yml` — backend compose stack (API + Postgres + OTEL tooling)
+- `frontend/console/` — static console UI assets + Dockerfile
+- `compose.console.yaml` — compose file for the static console
+- `src/` + `public/` + `package.json` — Express setup wizard
+- `docs/` — security/architecture/feature design docs
+- `scripts/` — backup/restore + misc utilities
+
+---
+
+## CI
+GitHub Actions runs Python lint/tests for the backend (see `.github/workflows/ci.yml`).
