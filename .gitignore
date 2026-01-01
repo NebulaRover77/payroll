@@ -8,3 +8,9 @@ backups/
 .vscode/
 *.db
 .venv/
+node_modules
+npm-debug.log
+.data
+.DS_Store
+data/setup.json
+data/audit-log.json
