@@ -1,5 +1,0 @@
-<<<<<<< HEAD
-# Standard library only; placeholder for future dependencies.
-=======
-# No external dependencies required
->>>>>>> origin/codex/implement-payroll-reporting-features

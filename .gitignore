@@ -1,24 +1,36 @@
-__pycache__/
-*.pyc
-<<<<<<< HEAD
-.env
-.env.*
-backups/
-.pgdata/
+# OS / Editor
+.DS_Store
 .idea/
 .vscode/
-*.db
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
 .venv/
-node_modules
-npm-debug.log
-.data
-.DS_Store
+.pytest_cache/
+.mypy_cache/
+ruff_cache/
+
+# Env / secrets
+.env
+.env.*
 data/setup.json
 data/audit-log.json
-=======
-*.pyo
+
+# Local data / DB
+*.db
+.data/
+.pgdata/
+backups/
+
+# Misc
+*.log
+
+# Reporting outputs
 outputs/
 audit_log.jsonl
 report_schedules.json
-.venv/
->>>>>>> origin/codex/implement-payroll-reporting-features
