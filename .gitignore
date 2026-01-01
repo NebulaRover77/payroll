@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+<<<<<<< HEAD
 .env
 .env.*
 backups/
@@ -14,3 +15,10 @@ npm-debug.log
 .DS_Store
 data/setup.json
 data/audit-log.json
+=======
+*.pyo
+outputs/
+audit_log.jsonl
+report_schedules.json
+.venv/
+>>>>>>> origin/codex/implement-payroll-reporting-features
