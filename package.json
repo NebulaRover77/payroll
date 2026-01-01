@@ -1,0 +1,10 @@
+{
+  "name": "payroll",
+  "version": "1.0.0",
+  "description": "Payroll setup wizard and backend services",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node scripts/self-check.js"
+  }
+}
