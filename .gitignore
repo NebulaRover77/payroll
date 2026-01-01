@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+outputs/
+audit_log.jsonl
+report_schedules.json
+.venv/
