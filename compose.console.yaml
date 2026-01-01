@@ -1,6 +1,7 @@
 services:
-  nebula-payroll:
-    build: .
+  console:
+    build:
+      context: ./frontend/console
+      dockerfile: Dockerfile
     ports:
       - "8080:80"
-    restart: unless-stopped
