@@ -1,0 +1,171 @@
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1f2933;
+  background: #f7f9fb;
+}
+
+body {
+  margin: 0;
+  background: #f7f9fb;
+}
+
+header {
+  background: #0f172a;
+  color: #fff;
+  padding: 1.5rem 2rem;
+}
+
+.container {
+  max-width: 1080px;
+  margin: -40px auto 40px;
+  padding: 0 1rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  padding: 1.5rem;
+}
+
+.flex {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+input, select {
+  width: 100%;
+  padding: 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #cbd2da;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+input:focus, select:focus {
+  border-color: #2563eb;
+  outline: 2px solid #93c5fd;
+}
+
+.button-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+}
+
+button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.badge {
+  background: #e5edff;
+  color: #1d4ed8;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.step {
+  background: #eef2f7;
+  border-radius: 10px;
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 700;
+  color: #475569;
+}
+
+.step.active {
+  background: #2563eb;
+  color: white;
+}
+
+.error {
+  color: #b91c1c;
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.notice {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.success {
+  background: #dcfce7;
+  border: 1px solid #22c55e;
+  color: #166534;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.list-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.small {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+input.invalid, select.invalid {
+  border-color: #ef4444;
+}
+
+.loader {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid #93c5fd;
+  border-top-color: transparent;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
