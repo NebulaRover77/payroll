@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Static asset bucket and CDN for payroll SPA
+Resources:
+  StaticBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub payroll-static-${AWS::AccountId}-${AWS::Region}
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+  CDN:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - DomainName: !GetAtt StaticBucket.RegionalDomainName
+            Id: static-bucket
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD]
+          TargetOriginId: static-bucket
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            QueryString: false
+Outputs:
+  BucketName:
+    Value: !Ref StaticBucket
+  DistributionDomain:
+    Value: !GetAtt CDN.DomainName
