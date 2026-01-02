@@ -25,6 +25,7 @@
           <div class="nav-label">Payroll</div>
           <a class="nav-link" href="/payroll-new.html">Run a New Payroll</a>
           <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
+          <a class="nav-link" href="/payroll-view.html">View Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
           <a class="nav-link" href="/pay-types.html">Edit Pay Types</a>
@@ -91,6 +92,7 @@
             <table class="table" aria-label="Timesheet entries">
               <thead>
                 <tr id="timesheetHeader">
+                  <th class="center">Include</th>
                   <th>Employee</th>
                   <th>Pay schedule</th>
                   <th class="right">Vacation left</th>
@@ -148,6 +150,7 @@
       function buildHeader() {
         const typeHeaders = payTypes.map((type) => `<th class="right">${type.name} hours</th>`).join('');
         timesheetHeader.innerHTML = `
+          <th class="center">Include</th>
           <th>Employee</th>
           <th>Pay schedule</th>
           ${typeHeaders}
@@ -169,13 +172,14 @@
           const entry = getEntryFor(employee.id);
           const row = document.createElement('tr');
           const hours = entry?.hours || {};
+          const isPaid = entry?.status === 'paid';
           row.dataset.employeeId = employee.id;
 
           const typeCells = payTypes
             .map((type) => {
               const enabled = employee.pay_types_enabled?.[type.id] ?? true;
               const value = formatHours(hours[type.id] || 0);
-              const disabled = !enabled || entry?.status === 'paid';
+              const disabled = !enabled || isPaid;
               return `
                 <td class="right">
                   <input
@@ -184,6 +188,7 @@
                     step="0.25"
                     data-pay-type="${type.id}"
                     value="${value}"
+                    data-base-disabled="${disabled ? 'true' : 'false'}"
                     ${disabled ? 'disabled' : ''}
                   />
                 </td>
@@ -196,10 +201,13 @@
           const totalHours = payTypes.reduce((sum, type) => sum + Number(hours[type.id] || 0), 0);
 
           row.innerHTML = `
+            <td class="center">
+              <input type="checkbox" class="row-toggle" ${isPaid ? 'checked disabled' : 'checked'} />
+            </td>
             <td>
               <strong>${employee.name || 'Employee'}</strong>
               <div class="muted" style="margin-top: 4px;">${employee.department || 'No department'}</div>
-              ${entry?.status === 'paid' ? '<span class="pill" style="margin-top: 6px;">Paid</span>' : ''}
+              ${isPaid ? '<span class="pill" style="margin-top: 6px;">Paid</span>' : ''}
             </td>
             <td>${employee.pay_schedule || 'Monthly'}</td>
             ${typeCells}
@@ -211,7 +219,22 @@
         });
       }
 
+      function setRowEnabled(row, enabled) {
+        row.querySelectorAll('input[data-pay-type]').forEach((input) => {
+          const baseDisabled = input.dataset.baseDisabled === 'true';
+          input.disabled = baseDisabled || !enabled;
+        });
+      }
+
       function updateRowTotal(row) {
+        const rowToggle = row.querySelector('.row-toggle');
+        if (rowToggle && !rowToggle.checked) {
+          const totalCell = row.querySelector('[data-total]');
+          if (totalCell) totalCell.textContent = formatHours(0);
+          const vacationLeftCell = row.querySelector('td:nth-last-child(2)');
+          if (vacationLeftCell) vacationLeftCell.textContent = '-';
+          return;
+        }
         let total = 0;
         payTypes.forEach((type) => {
           const input = row.querySelector(`[data-pay-type="${type.id}"]`);
@@ -277,6 +300,8 @@
           .map((employee) => {
             const row = timesheetBody.querySelector(`tr[data-employee-id="${employee.id}"]`);
             if (!row) return null;
+            const toggle = row.querySelector('.row-toggle');
+            if (toggle && !toggle.checked) return null;
             const hours = {};
             payTypes.forEach((type) => {
               const input = row.querySelector(`[data-pay-type="${type.id}"]`);
@@ -332,6 +357,14 @@
       timesheetBody.addEventListener('input', (event) => {
         const row = event.target.closest('tr');
         if (row) updateRowTotal(row);
+      });
+
+      timesheetBody.addEventListener('change', (event) => {
+        if (!event.target.classList.contains('row-toggle')) return;
+        const row = event.target.closest('tr');
+        if (!row) return;
+        setRowEnabled(row, event.target.checked);
+        updateRowTotal(row);
       });
 
       startDateInput.addEventListener('change', loadEntries);

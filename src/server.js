@@ -20,7 +20,14 @@ const DEFAULT_PAY_TYPES = [
   { id: 'vacation', name: 'Vacation' },
   { id: 'holiday', name: 'Holiday' }
 ];
-const defaultStore = { employees: [], pay_periods: [], time_entries: [], pto_requests: [], pay_types: DEFAULT_PAY_TYPES };
+const defaultStore = {
+  employees: [],
+  pay_periods: [],
+  time_entries: [],
+  pto_requests: [],
+  pay_types: DEFAULT_PAY_TYPES,
+  payroll_runs: []
+};
 const ZIP_REGEX = /^\d{5}(-\d{4})?$/;
 const PAY_CADENCE_OPTIONS = ['weekly', 'biweekly', 'semimonthly', 'monthly'];
 const EMPLOYMENT_STATUSES = ['Active', 'On Leave', 'Terminated'];
@@ -541,6 +548,7 @@ function handleApi(req, res) {
         }
         const store = readStore();
         const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+        const payrollRuns = Array.isArray(store.payroll_runs) ? store.payroll_runs : [];
         let updated = 0;
         entries.forEach((entry) => {
           if (entry.start_date === startDate && entry.end_date === endDate && entry.status !== 'paid') {
@@ -549,9 +557,88 @@ function handleApi(req, res) {
             updated += 1;
           }
         });
-        saveStore({ ...store, time_entries: entries });
+        let run = payrollRuns.find((item) => item.start_date === startDate && item.end_date === endDate);
+        if (!run) {
+          run = {
+            id: randomUUID(),
+            start_date: startDate,
+            end_date: endDate,
+            created_at: new Date().toISOString(),
+            label: '',
+            entry_ids: entries.filter((entry) => entry.start_date === startDate && entry.end_date === endDate).map((entry) => entry.id)
+          };
+          payrollRuns.push(run);
+        }
+        saveStore({ ...store, time_entries: entries, payroll_runs: payrollRuns });
         audit('user', 'timesheet.paid', { startDate, endDate, updated });
-        return sendJson(res, 200, { updated });
+        return sendJson(res, 200, { updated, run });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/payroll-runs') {
+    const store = readStore();
+    const payrollRuns = Array.isArray(store.payroll_runs) ? store.payroll_runs : [];
+    const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+    const paidPeriods = entries
+      .filter((entry) => entry.status === 'paid')
+      .reduce((acc, entry) => {
+        const key = `${entry.start_date}_${entry.end_date}`;
+        if (!acc.has(key)) {
+          acc.set(key, { start_date: entry.start_date, end_date: entry.end_date });
+        }
+        return acc;
+      }, new Map());
+    paidPeriods.forEach((period) => {
+      const exists = payrollRuns.find((run) => run.start_date === period.start_date && run.end_date === period.end_date);
+      if (!exists) {
+        payrollRuns.push({
+          id: randomUUID(),
+          start_date: period.start_date,
+          end_date: period.end_date,
+          created_at: new Date().toISOString(),
+          label: '',
+          entry_ids: entries
+            .filter((entry) => entry.start_date === period.start_date && entry.end_date === period.end_date)
+            .map((entry) => entry.id)
+        });
+      }
+    });
+    saveStore({ ...store, payroll_runs: payrollRuns });
+    return sendJson(res, 200, { runs: payrollRuns });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/payroll-runs/update') {
+    return parseBody(req)
+      .then((body) => {
+        const runId = (body.run_id || '').trim();
+        if (!runId) return sendJson(res, 400, { error: 'Run ID is required' });
+        const store = readStore();
+        const payrollRuns = Array.isArray(store.payroll_runs) ? store.payroll_runs : [];
+        const run = payrollRuns.find((item) => item.id === runId);
+        if (!run) return sendJson(res, 404, { error: 'Payroll run not found' });
+        run.label = (body.label || '').trim();
+        saveStore({ ...store, payroll_runs: payrollRuns });
+        audit('user', 'payroll.update', { runId });
+        return sendJson(res, 200, { run });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/payroll-runs/delete') {
+    return parseBody(req)
+      .then((body) => {
+        const runId = (body.run_id || '').trim();
+        if (!runId) return sendJson(res, 400, { error: 'Run ID is required' });
+        const store = readStore();
+        const payrollRuns = Array.isArray(store.payroll_runs) ? store.payroll_runs : [];
+        const nextRuns = payrollRuns.filter((item) => item.id !== runId);
+        if (nextRuns.length === payrollRuns.length) {
+          return sendJson(res, 404, { error: 'Payroll run not found' });
+        }
+        saveStore({ ...store, payroll_runs: nextRuns });
+        audit('user', 'payroll.delete', { runId });
+        return sendJson(res, 200, { runs: nextRuns });
       })
       .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
   }
