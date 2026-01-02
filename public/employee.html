@@ -33,6 +33,8 @@
           <div class="nav-label">Employees</div>
           <a class="nav-link" href="/employees.html">List Employees</a>
           <a class="nav-link" href="/employee-add.html">Add Employee</a>
+          <a class="nav-link" href="/pay-schedules.html">Edit Pay Schedules</a>
+          <a class="nav-link" href="/manage-pto.html">Manage PTO</a>
         </div>
 
         <div class="nav-group">
@@ -67,7 +69,10 @@
         <section class="panel">
           <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <h2 style="margin: 0;">Profile</h2>
-            <a class="btn ghost small" href="/employees.html">Back to roster</a>
+            <div class="flex" style="gap: 8px;">
+              <a class="btn ghost small" href="/employees.html">Back to roster</a>
+              <a class="btn primary small" id="editEmployeeBtn" style="display: none;" href="#">Edit</a>
+            </div>
           </div>
 
           <div id="loadingState" class="muted">Loading employee details...</div>
@@ -85,12 +90,20 @@
                 <p id="profilePaySchedule" style="margin: 0;"></p>
               </div>
               <div>
+                <p class="muted" style="margin-bottom: 4px;">Status</p>
+                <p id="profileStatus" style="margin: 0;"></p>
+              </div>
+              <div>
                 <p class="muted" style="margin-bottom: 4px;">Employee ID</p>
                 <p id="profileId" class="muted" style="margin: 0;"></p>
               </div>
               <div>
                 <p class="muted" style="margin-bottom: 4px;">Date of birth</p>
                 <p id="profileDob" style="margin: 0;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Hire date</p>
+                <p id="profileHireDate" style="margin: 0;"></p>
               </div>
               <div>
                 <p class="muted" style="margin-bottom: 4px;">SSN</p>
@@ -141,11 +154,14 @@
       const employeeName = document.getElementById('employeeName');
       const employeePaySchedule = document.getElementById('employeePaySchedule');
       const employeeIdLabel = document.getElementById('employeeIdLabel');
+      const editEmployeeBtn = document.getElementById('editEmployeeBtn');
 
       const profileName = document.getElementById('profileName');
       const profilePaySchedule = document.getElementById('profilePaySchedule');
+      const profileStatus = document.getElementById('profileStatus');
       const profileId = document.getElementById('profileId');
       const profileDob = document.getElementById('profileDob');
+      const profileHireDate = document.getElementById('profileHireDate');
       const profileSsn = document.getElementById('profileSsn');
       const profileEmail = document.getElementById('profileEmail');
       const profilePhone = document.getElementById('profilePhone');
@@ -199,15 +215,30 @@
         employeeName.textContent = employee.name || 'Employee';
         employeePaySchedule.textContent = employee.pay_schedule ? `Pay schedule: ${employee.pay_schedule}` : 'Pay schedule: Monthly';
         employeeIdLabel.textContent = employee.id ? `ID: ${employee.id}` : '';
+        if (employee.id) {
+          editEmployeeBtn.href = `/employee-edit.html?id=${encodeURIComponent(employee.id)}`;
+          editEmployeeBtn.style.display = 'inline-flex';
+        } else {
+          editEmployeeBtn.style.display = 'none';
+        }
 
         profileName.textContent = employee.name || '-';
         profilePaySchedule.textContent = employee.pay_schedule || 'Monthly';
+        profileStatus.textContent = employee.status || 'Active';
         profileId.textContent = employee.id || '-';
         profileDob.textContent = employee.dob || '-';
+        profileHireDate.textContent = employee.hire_date || '-';
         profileSsn.textContent = employee.ssn || '-';
         profileEmail.textContent = employee.email || '-';
         profilePhone.textContent = employee.phone || '-';
-        profileAddress.textContent = employee.address || '-';
+        const addressParts = [
+          employee.address_line1,
+          employee.address_line2,
+          [employee.city, employee.state].filter(Boolean).join(', '),
+          employee.postal_code
+        ].filter(Boolean);
+        const formattedAddress = addressParts.length ? addressParts.join('\n') : employee.address;
+        profileAddress.textContent = formattedAddress || '-';
         profilePto.textContent = `${Number(employee.pto_balance_hours || 0).toFixed(1)}h`;
       }
     </script>

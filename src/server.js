@@ -16,6 +16,9 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DATA_STORE_PATH = path.join(DATA_DIR, 'store.json');
 const defaultStore = { employees: [], pay_periods: [], time_entries: [], pto_requests: [] };
+const ZIP_REGEX = /^\d{5}(-\d{4})?$/;
+const PAY_CADENCE_OPTIONS = ['weekly', 'biweekly', 'semimonthly', 'monthly'];
+const EMPLOYMENT_STATUSES = ['Active', 'On Leave', 'Terminated'];
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -156,32 +159,61 @@ function handleApi(req, res) {
         const lastName = (body.last_name || body.lastName || '').trim();
         const ssn = (body.ssn || '').trim();
         const dob = (body.dob || '').trim();
-        const address = (body.address || '').trim();
+        const hireDate = (body.hire_date || body.hireDate || '').trim();
+        const addressLine1 = (body.address_line1 || body.addressLine1 || '').trim();
+        const addressLine2 = (body.address_line2 || body.addressLine2 || '').trim();
+        const city = (body.city || '').trim();
+        const state = (body.state || '').trim();
+        const postalCode = (body.postal_code || body.postalCode || '').trim();
         const email = (body.email || '').trim();
         const phone = (body.phone || body.cell_phone || '').trim();
         const paySchedule = (body.pay_schedule || body.paySchedule || '').trim();
         const department = (body.department || '').trim();
         const providedId = (body.id || '').trim();
         const ptoBalance = Number(body.pto_balance_hours ?? body.pto ?? 0);
+        const statusInput = (body.status || '').trim();
+        const status = statusInput
+          ? EMPLOYMENT_STATUSES.find((item) => item.toLowerCase() === statusInput.toLowerCase())
+          : 'Active';
+
+        const addressParts = [
+          addressLine1,
+          addressLine2,
+          [city, state].filter(Boolean).join(', '),
+          postalCode
+        ].filter(Boolean);
+        const address = addressParts.join('\n');
 
         const payScheduleNames = loadPaySchedules()
           .map((schedule) => schedule.name)
           .filter(Boolean);
 
-        if (!firstName || !lastName || !ssn || !dob || !address || !paySchedule) {
-          return sendJson(res, 400, { error: 'First name, last name, SSN, DOB, address, and pay schedule are required' });
+        if (!firstName || !lastName || !addressLine1 || !postalCode || !paySchedule) {
+          return sendJson(res, 400, { error: 'First name, last name, address line 1, zip, and pay schedule are required' });
         }
 
-        if (!/^\d{3}-?\d{2}-?\d{4}$/.test(ssn)) {
+        if (ssn && !/^\d{3}-?\d{2}-?\d{4}$/.test(ssn)) {
           return sendJson(res, 400, { error: 'SSN must match ###-##-####' });
         }
 
-        if (Number.isNaN(Date.parse(dob))) {
+        if (dob && Number.isNaN(Date.parse(dob))) {
           return sendJson(res, 400, { error: 'Provide a valid date of birth' });
+        }
+
+        if (hireDate && Number.isNaN(Date.parse(hireDate))) {
+          return sendJson(res, 400, { error: 'Provide a valid hire date' });
+        }
+
+        if (postalCode && !ZIP_REGEX.test(postalCode)) {
+          return sendJson(res, 400, { error: 'Provide a valid zip code' });
         }
 
         if (payScheduleNames.length && !payScheduleNames.map((n) => n.toLowerCase()).includes(paySchedule.toLowerCase())) {
           return sendJson(res, 400, { error: 'Select a valid pay schedule' });
+        }
+
+        if (statusInput && !status) {
+          return sendJson(res, 400, { error: 'Select a valid status' });
         }
 
         const employee = {
@@ -192,10 +224,17 @@ function handleApi(req, res) {
           last_name: lastName,
           ssn,
           dob,
+          hire_date: hireDate,
           address,
+          address_line1: addressLine1,
+          address_line2: addressLine2,
+          city,
+          state,
+          postal_code: postalCode,
           email,
           phone,
           pay_schedule: paySchedule,
+          status,
           department,
           pto_balance_hours: Number.isFinite(ptoBalance) ? ptoBalance : 0
         };
@@ -237,13 +276,116 @@ function handleApi(req, res) {
     return sendJson(res, 200, {
       einPattern: EIN_REGEX.toString(),
       states: STATES,
-      cadenceOptions: ['weekly', 'biweekly', 'semimonthly', 'monthly'],
+      cadenceOptions: PAY_CADENCE_OPTIONS,
       filingFrequencies: ['monthly', 'quarterly', 'annual'],
       paySchedules: loadPaySchedules().map((schedule) => ({
         name: schedule.name,
         cadence: schedule.cadence || 'monthly'
       }))
     });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/pto') {
+    const employees = loadEmployees().map((employee) => ({
+      id: employee.id,
+      name: employee.name,
+      department: employee.department || '',
+      pay_schedule: employee.pay_schedule || '',
+      pto_balance_hours: Number(employee.pto_balance_hours || 0)
+    }));
+    return sendJson(res, 200, { employees });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/pto') {
+    return parseBody(req)
+      .then((body) => {
+        const adjustments = Array.isArray(body.adjustments) ? body.adjustments : [];
+        if (!adjustments.length) {
+          return sendJson(res, 400, { error: 'Provide at least one PTO adjustment' });
+        }
+
+        const store = readStore();
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+
+        for (const adjustment of adjustments) {
+          const employeeId = (adjustment.employeeId || '').trim();
+          const amount = Number(adjustment.amount);
+          const reason = (adjustment.reason || '').trim();
+
+          if (!employeeId) {
+            return sendJson(res, 400, { error: 'Employee ID is required for PTO adjustments' });
+          }
+
+          if (!Number.isFinite(amount)) {
+            return sendJson(res, 400, { error: 'Adjustment amount must be a valid number of hours' });
+          }
+
+          const employee = employees.find((item) => item.id === employeeId);
+          if (!employee) {
+            return sendJson(res, 404, { error: `Employee not found: ${employeeId}` });
+          }
+
+          const current = Number(employee.pto_balance_hours || 0);
+          const updated = Math.max(0, current + amount);
+
+          employee.pto_balance_hours = Math.round(updated * 100) / 100;
+          audit('user', 'pto.adjust', { employeeId, amount, reason });
+        }
+
+        saveStore({ ...store, employees });
+        const refreshed = loadEmployees().map((employee) => ({
+          id: employee.id,
+          name: employee.name,
+          department: employee.department || '',
+          pay_schedule: employee.pay_schedule || '',
+          pto_balance_hours: Number(employee.pto_balance_hours || 0)
+        }));
+
+        return sendJson(res, 200, { employees: refreshed });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/pay-schedules') {
+    const paySchedules = loadPaySchedules();
+    return sendJson(res, 200, { paySchedules });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/pay-schedules') {
+    return parseBody(req)
+      .then((body) => {
+        const payload = Array.isArray(body.paySchedules) ? body.paySchedules : [];
+        if (!payload.length) {
+          return sendJson(res, 400, { error: 'Add at least one pay schedule' });
+        }
+
+        const normalized = payload.map((schedule) => ({
+          ...schedule,
+          name: (schedule.name || '').trim(),
+          cadence: (schedule.cadence || '').toLowerCase(),
+          firstPayDate: schedule.firstPayDate || schedule.first_pay_date || '',
+          timezone: schedule.timezone || ''
+        }));
+
+        for (const schedule of normalized) {
+          if (!schedule.name) return sendJson(res, 400, { error: 'Schedule name is required' });
+          if (!PAY_CADENCE_OPTIONS.includes(schedule.cadence)) {
+            return sendJson(res, 400, { error: 'Cadence must be weekly, biweekly, semimonthly, or monthly' });
+          }
+        }
+
+        const lowerNames = normalized.map((schedule) => schedule.name.toLowerCase());
+        const hasDuplicate = lowerNames.some((name, idx) => lowerNames.indexOf(name) !== idx);
+        if (hasDuplicate) {
+          return sendJson(res, 400, { error: 'Schedule names must be unique' });
+        }
+
+        const setup = loadSetup();
+        const saved = saveSetup({ ...setup, paySchedules: normalized });
+        audit('user', 'paySchedules.update', { count: normalized.length });
+        return sendJson(res, 200, { paySchedules: saved.paySchedules });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
   }
 
   if (url.pathname === '/api/admin/audit') {
