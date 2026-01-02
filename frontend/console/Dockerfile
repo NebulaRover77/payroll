@@ -1,10 +1,5 @@
 FROM nginx:alpine
-
-# Set working directory
 WORKDIR /usr/share/nginx/html
-
-# Copy static site content
 COPY index.html script.js style.css ./
-
-# Expose default nginx port
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
