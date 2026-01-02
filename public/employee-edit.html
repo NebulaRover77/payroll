@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Add Employee | Nebula Payroll</title>
+    <title>Edit Employee | Nebula Payroll</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="subtle-bg">
@@ -32,7 +32,7 @@
         <div class="nav-group">
           <div class="nav-label">Employees</div>
           <a class="nav-link" href="/employees.html">List Employees</a>
-          <a class="nav-link active" aria-current="page" href="/employee-add.html">Add Employee</a>
+          <a class="nav-link" href="/employee-add.html">Add Employee</a>
           <a class="nav-link" href="/pay-schedules.html">Edit Pay Schedules</a>
           <a class="nav-link" href="/manage-pto.html">Manage PTO</a>
         </div>
@@ -56,20 +56,26 @@
 
       <main class="workspace">
         <section class="workspace__heading">
-          <h1>Add Employee</h1>
-          <p class="lead">Capture a new hire's details so their hours and pay can be tracked.</p>
+          <h1>Edit Employee</h1>
+          <p class="lead">Update details for an existing team member.</p>
         </section>
 
         <section class="panel">
           <div class="flex" style="justify-content: space-between; align-items: center; gap: 12px;">
             <div>
-              <h2 style="margin: 0 0 4px;">New hire details</h2>
-              <p class="muted" style="margin: 0;">Fill in the required fields and we'll add them to the roster.</p>
+              <h2 style="margin: 0 0 4px;">Employee details</h2>
+              <p class="muted" style="margin: 0;">Change contact information, identifiers, or pay schedule.</p>
             </div>
-            <a class="btn ghost small" href="/employees.html">Back to roster</a>
+            <div class="flex" style="gap: 8px;">
+              <a class="btn ghost small" id="profileLink" href="/employees.html">Back to roster</a>
+            </div>
           </div>
 
-          <form id="employeeForm" class="form-grid" style="margin-top: 20px;">
+          <div id="missingId" class="notice" style="display: none; margin-top: 16px;">Employee ID is required to edit a record.</div>
+          <div id="notFound" class="notice" style="display: none; margin-top: 16px;">Employee not found.</div>
+          <div id="loadError" class="notice" style="display: none; margin-top: 16px;">Unable to load employee right now.</div>
+
+          <form id="employeeForm" class="form-grid" style="margin-top: 20px; display: none;">
             <div>
               <label for="firstName">First name</label>
               <input id="firstName" name="firstName" required placeholder="Alex" />
@@ -148,19 +154,19 @@
             <div>
               <label for="employeeId">Employee ID (optional)</label>
               <input id="employeeId" name="employeeId" placeholder="emp-123" />
-              <p class="muted" style="margin-top: 4px;">Leave blank to auto-generate an ID.</p>
+              <p class="muted" style="margin-top: 4px;">Updating the ID will overwrite the existing value.</p>
             </div>
             <div>
-              <label for="ptoBalance">Starting PTO balance (hours)</label>
-              <input id="ptoBalance" name="ptoBalance" type="number" step="0.1" min="0" value="0" />
+              <label for="ptoBalance">PTO balance (hours)</label>
+              <input id="ptoBalance" name="ptoBalance" type="number" step="0.1" min="0" />
               <div class="error" data-error="ptoBalance"></div>
             </div>
             <div style="grid-column: 1 / -1;" class="muted">
-              We'll also log this event so your audit log reflects new hires.
+              We'll log these changes so they appear in your audit history.
             </div>
 
             <div style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
-              <button class="btn primary" type="submit" id="submitBtn">Save employee</button>
+              <button class="btn primary" type="submit" id="submitBtn">Save changes</button>
               <div id="formStatus" class="muted" role="status"></div>
             </div>
           </form>
@@ -179,13 +185,22 @@
         window.location.href = '/';
       });
 
+      const params = new URLSearchParams(window.location.search);
+      const employeeId = params.get('id');
+      const missingIdNotice = document.getElementById('missingId');
+      const notFoundNotice = document.getElementById('notFound');
+      const loadErrorNotice = document.getElementById('loadError');
       const form = document.getElementById('employeeForm');
       const statusEl = document.getElementById('formStatus');
       const submitBtn = document.getElementById('submitBtn');
       const payScheduleSelect = document.getElementById('paySchedule');
+      const profileLink = document.getElementById('profileLink');
+
+      let paySchedules = [];
+      let employeeData = null;
 
       function setStatus(message, isError = false) {
-        statusEl.textContent = message;
+        statusEl.textContent = message || '';
         statusEl.className = isError ? 'notice' : 'muted';
       }
 
@@ -196,9 +211,86 @@
         }
       }
 
+      function hydratePayScheduleSelect() {
+        if (!paySchedules.length) return;
+        payScheduleSelect.innerHTML = paySchedules
+          .map((schedule) => `<option value="${schedule.name}">${schedule.name}</option>`)
+          .join('');
+
+        const selected = employeeData?.pay_schedule || paySchedules[0]?.name;
+        payScheduleSelect.value = selected || '';
+      }
+
+      function populateForm(employee) {
+        document.getElementById('firstName').value = employee.first_name || '';
+        document.getElementById('middleName').value = employee.middle_name || '';
+        document.getElementById('lastName').value = employee.last_name || '';
+        document.getElementById('dob').value = employee.dob || '';
+        document.getElementById('hireDate').value = employee.hire_date || '';
+        document.getElementById('ssn').value = employee.ssn || '';
+        document.getElementById('addressLine1').value = employee.address_line1 || '';
+        document.getElementById('addressLine2').value = employee.address_line2 || '';
+        document.getElementById('city').value = employee.city || '';
+        document.getElementById('state').value = employee.state || '';
+        document.getElementById('postalCode').value = employee.postal_code || '';
+        document.getElementById('email').value = employee.email || '';
+        document.getElementById('phone').value = employee.phone || '';
+        document.getElementById('employeeId').value = employee.id || '';
+        document.getElementById('ptoBalance').value = Number(employee.pto_balance_hours || 0);
+        document.getElementById('status').value = employee.status || 'Active';
+
+        hydratePayScheduleSelect();
+        form.style.display = 'grid';
+        statusEl.textContent = '';
+      }
+
+      async function loadPaySchedules() {
+        try {
+          const response = await fetch('/api/pay-schedules');
+          if (!response.ok) throw new Error('Request failed');
+          const payload = await response.json();
+          paySchedules = Array.isArray(payload.paySchedules) && payload.paySchedules.length
+            ? payload.paySchedules
+            : [{ name: 'Monthly', cadence: 'monthly' }];
+          hydratePayScheduleSelect();
+        } catch (error) {
+          console.error('Unable to load pay schedules', error);
+          paySchedules = [{ name: 'Monthly', cadence: 'monthly' }];
+          hydratePayScheduleSelect();
+        }
+      }
+
+      async function loadEmployee() {
+        if (!employeeId) {
+          missingIdNotice.style.display = 'block';
+          return;
+        }
+
+        try {
+          statusEl.textContent = 'Loading employee...';
+          const response = await fetch(`/api/employees/${encodeURIComponent(employeeId)}`);
+          if (response.status === 404) {
+            notFoundNotice.style.display = 'block';
+            statusEl.textContent = '';
+            return;
+          }
+          if (!response.ok) {
+            throw new Error('Request failed');
+          }
+          const payload = await response.json();
+          employeeData = payload.employee;
+          profileLink.href = `/employee.html?id=${encodeURIComponent(employeeData.id)}`;
+          populateForm(employeeData);
+        } catch (error) {
+          console.error('Failed to load employee', error);
+          loadErrorNotice.style.display = 'block';
+          statusEl.textContent = '';
+        }
+      }
+
       async function submitEmployee(event) {
         event.preventDefault();
-        setStatus('Saving new employee...');
+        setStatus('Saving changes...');
         ['firstName', 'lastName', 'dob', 'hireDate', 'ssn', 'addressLine1', 'postalCode', 'paySchedule', 'status', 'ptoBalance'].forEach((field) => {
           setFieldError(field);
         });
@@ -220,7 +312,7 @@
           phone: document.getElementById('phone').value.trim(),
           pay_schedule: payScheduleSelect.value,
           status: document.getElementById('status').value,
-          id: document.getElementById('employeeId').value.trim(),
+          id: document.getElementById('employeeId').value.trim() || employeeId,
           pto_balance_hours: Number(document.getElementById('ptoBalance').value || 0)
         };
 
@@ -252,7 +344,7 @@
           }
 
           const employee = result.employee;
-          setStatus('Employee saved! Redirecting to profile...');
+          setStatus('Employee updated! Redirecting to profile...');
           setTimeout(() => {
             window.location.href = `/employee.html?id=${encodeURIComponent(employee.id)}`;
           }, 600);
@@ -264,23 +356,8 @@
         }
       }
 
-      async function loadPaySchedules() {
-        try {
-          const response = await fetch('/api/metadata');
-          const metadata = await response.json();
-          const schedules = Array.isArray(metadata.paySchedules) && metadata.paySchedules.length
-            ? metadata.paySchedules
-            : [{ name: 'Monthly', cadence: 'monthly' }];
-          payScheduleSelect.innerHTML = schedules
-            .map((schedule) => `<option value="${schedule.name}">${schedule.name}</option>`)
-            .join('');
-        } catch (error) {
-          console.error('Unable to load pay schedules', error);
-          payScheduleSelect.innerHTML = '<option value="Monthly">Monthly</option>';
-        }
-      }
-
       loadPaySchedules();
+      loadEmployee();
       form.addEventListener('submit', submitEmployee);
     </script>
   </body>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Pay Schedules | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="app-header">
+      <div class="app-header__brand">Nebula Payroll</div>
+      <div class="app-header__actions">
+        <button id="logoutBtn" class="btn ghost small">Log Out</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Primary">
+        <div class="nav-group">
+          <div class="nav-label">Main</div>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Payroll</div>
+          <a class="nav-link" href="/payroll-new.html">Run a New Payroll</a>
+          <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
+          <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
+          <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Employees</div>
+          <a class="nav-link" href="/employees.html">List Employees</a>
+          <a class="nav-link" href="/employee-add.html">Add Employee</a>
+          <a class="nav-link active" aria-current="page" href="/pay-schedules.html">Edit Pay Schedules</a>
+          <a class="nav-link" href="/manage-pto.html">Manage PTO</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Time Tracking</div>
+          <a class="nav-link" href="/timesheets.html">Timesheets</a>
+          <a class="nav-link" href="/approvals.html">Approvals</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Reports</div>
+          <a class="nav-link" href="/reports.html">View Reports</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Settings</div>
+          <a class="nav-link" href="/settings.html">Company Settings</a>
+        </div>
+      </nav>
+
+      <main class="workspace">
+        <section class="workspace__heading">
+          <h1>Edit Pay Schedules</h1>
+          <p class="lead">Keep employee pay schedules up to date with your current payroll cadence.</p>
+        </section>
+
+        <section class="panel">
+          <div class="flex" style="justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Pay schedule library</h2>
+              <p class="muted" style="margin: 0;">Add, rename, or remove pay schedules used across the roster.</p>
+            </div>
+            <button class="btn ghost small" id="addSchedule">Add schedule</button>
+          </div>
+
+          <div id="status" class="muted" role="status" style="margin-bottom: 12px;"></div>
+          <div id="error" class="notice" style="display: none; margin-bottom: 12px;">Unable to load pay schedules.</div>
+
+          <div class="table-responsive" style="overflow-x: auto;">
+            <table class="table" aria-label="Pay schedules">
+              <thead>
+                <tr>
+                  <th scope="col" style="width: 60%;">Name</th>
+                  <th scope="col">Cadence</th>
+                  <th scope="col" class="muted" style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleTable"></tbody>
+            </table>
+          </div>
+
+          <div class="muted" id="emptyState" style="display: none; margin-top: 12px;">No pay schedules added yet.</div>
+
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px;">
+            <button class="btn primary" id="saveSchedules">Save changes</button>
+            <div id="saveStatus" class="muted" role="status"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('payrollAuthToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      document.getElementById('logoutBtn').addEventListener('click', () => {
+        localStorage.removeItem('payrollAuthToken');
+        window.location.href = '/';
+      });
+
+      const allowedCadence = ['weekly', 'biweekly', 'semimonthly', 'monthly'];
+      const scheduleTable = document.getElementById('scheduleTable');
+      const emptyState = document.getElementById('emptyState');
+      const statusEl = document.getElementById('status');
+      const errorEl = document.getElementById('error');
+      const saveStatus = document.getElementById('saveStatus');
+      const addBtn = document.getElementById('addSchedule');
+      const saveBtn = document.getElementById('saveSchedules');
+
+      let schedules = [];
+
+      function setStatus(message, isError = false) {
+        statusEl.textContent = message || '';
+        statusEl.className = isError ? 'notice' : 'muted';
+      }
+
+      function setSaveStatus(message, isError = false) {
+        saveStatus.textContent = message || '';
+        saveStatus.className = isError ? 'notice' : 'muted';
+      }
+
+      function renderSchedules() {
+        scheduleTable.innerHTML = '';
+        emptyState.style.display = schedules.length ? 'none' : 'block';
+
+        schedules.forEach((schedule, index) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>
+              <input data-index="${index}" data-field="name" value="${schedule.name || ''}" placeholder="Monthly" />
+            </td>
+            <td>
+              <select data-index="${index}" data-field="cadence">
+                ${allowedCadence
+                  .map((cadence) => `<option value="${cadence}" ${schedule.cadence === cadence ? 'selected' : ''}>${cadence}</option>`)
+                  .join('')}
+              </select>
+            </td>
+            <td class="muted" style="text-align: right;">
+              <button class="btn ghost small" data-remove="${index}">Remove</button>
+            </td>
+          `;
+          scheduleTable.appendChild(row);
+        });
+      }
+
+      function addScheduleRow() {
+        schedules.push({ name: '', cadence: allowedCadence[allowedCadence.length - 1], timezone: '', firstPayDate: '' });
+        renderSchedules();
+      }
+
+      function normalizeSchedules() {
+        return schedules.map((schedule) => ({
+          ...schedule,
+          name: (schedule.name || '').trim(),
+          cadence: (schedule.cadence || '').toLowerCase()
+        }));
+      }
+
+      function validateSchedulesForSave(list) {
+        if (!list.length) return 'Add at least one pay schedule.';
+        for (const schedule of list) {
+          if (!schedule.name) return 'Schedule name is required.';
+          if (!allowedCadence.includes(schedule.cadence)) return 'Choose a valid cadence.';
+        }
+        const names = list.map((s) => s.name.toLowerCase());
+        const hasDuplicate = names.some((name, idx) => names.indexOf(name) !== idx);
+        if (hasDuplicate) return 'Schedule names must be unique.';
+        return '';
+      }
+
+      async function saveSchedules() {
+        setSaveStatus('Saving schedules...');
+        saveBtn.disabled = true;
+        const normalized = normalizeSchedules();
+        const validationError = validateSchedulesForSave(normalized);
+        if (validationError) {
+          setSaveStatus(validationError, true);
+          saveBtn.disabled = false;
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/pay-schedules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paySchedules: normalized })
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload?.error || 'Unable to save schedules');
+          }
+          schedules = payload.paySchedules || normalized;
+          renderSchedules();
+          setSaveStatus('Pay schedules saved.');
+        } catch (error) {
+          console.error('Failed to save schedules', error);
+          setSaveStatus(error.message || 'Unable to save schedules.', true);
+        } finally {
+          saveBtn.disabled = false;
+        }
+      }
+
+      async function loadSchedules() {
+        setStatus('Loading pay schedules...');
+        errorEl.style.display = 'none';
+        try {
+          const response = await fetch('/api/pay-schedules');
+          if (!response.ok) throw new Error('Request failed');
+          const payload = await response.json();
+          schedules = Array.isArray(payload.paySchedules) && payload.paySchedules.length
+            ? payload.paySchedules
+            : [{ name: 'Monthly', cadence: 'monthly' }];
+          renderSchedules();
+          setStatus('');
+        } catch (error) {
+          console.error('Unable to load pay schedules', error);
+          errorEl.style.display = 'block';
+          schedules = [{ name: 'Monthly', cadence: 'monthly' }];
+          renderSchedules();
+          setStatus('');
+        }
+      }
+
+      scheduleTable.addEventListener('input', (event) => {
+        const index = Number(event.target.getAttribute('data-index'));
+        const field = event.target.getAttribute('data-field');
+        if (Number.isNaN(index) || !field) return;
+        schedules[index] = { ...schedules[index], [field]: event.target.value };
+      });
+
+      scheduleTable.addEventListener('click', (event) => {
+        const removeIndex = event.target.getAttribute('data-remove');
+        if (removeIndex !== null) {
+          schedules.splice(Number(removeIndex), 1);
+          renderSchedules();
+        }
+      });
+
+      addBtn.addEventListener('click', addScheduleRow);
+      saveBtn.addEventListener('click', saveSchedules);
+
+      loadSchedules();
+    </script>
+  </body>
+</html>

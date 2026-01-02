@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage PTO | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="app-header">
+      <div class="app-header__brand">Nebula Payroll</div>
+      <div class="app-header__actions">
+        <button id="logoutBtn" class="btn ghost small">Log Out</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Primary">
+        <div class="nav-group">
+          <div class="nav-label">Main</div>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Payroll</div>
+          <a class="nav-link" href="/payroll-new.html">Run a New Payroll</a>
+          <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
+          <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
+          <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Employees</div>
+          <a class="nav-link" href="/employees.html">List Employees</a>
+          <a class="nav-link" href="/employee-add.html">Add Employee</a>
+          <a class="nav-link" href="/pay-schedules.html">Edit Pay Schedules</a>
+          <a class="nav-link active" aria-current="page" href="/manage-pto.html">Manage PTO</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Time Tracking</div>
+          <a class="nav-link" href="/timesheets.html">Timesheets</a>
+          <a class="nav-link" href="/approvals.html">Approvals</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Reports</div>
+          <a class="nav-link" href="/reports.html">View Reports</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Settings</div>
+          <a class="nav-link" href="/settings.html">Company Settings</a>
+        </div>
+      </nav>
+
+      <main class="workspace">
+        <section class="workspace__heading">
+          <div>
+            <p class="muted" style="margin: 0;">Employees</p>
+            <h1 style="margin: 4px 0 10px 0;">Manage PTO</h1>
+            <p class="lead">Adjust PTO balances across your workforce and keep a clear record of changes.</p>
+          </div>
+          <div class="inline-actions" role="group" aria-label="PTO shortcuts">
+            <button id="refreshBtn" class="btn ghost small">Refresh</button>
+          </div>
+        </section>
+
+        <section class="panel" aria-live="polite">
+          <header class="panel__header">
+            <div>
+              <h2 style="margin: 0;">Balances</h2>
+              <p class="muted" style="margin: 4px 0 0 0;">View current PTO balances and apply adjustments in hours.</p>
+            </div>
+            <div id="statusText" class="muted"></div>
+          </header>
+
+          <div id="emptyState" class="empty-state" style="display: none;">
+            <p class="lead" style="margin: 0 0 8px 0;">No employees found</p>
+            <p class="muted" style="margin: 0 0 12px 0;">Add employees to begin tracking PTO balances.</p>
+            <a class="btn" href="/employee-add.html">Add Employee</a>
+          </div>
+
+          <div id="tableContainer" class="table" role="table">
+            <div class="table__row table__row--head" role="row">
+              <div class="table__cell" role="columnheader">Employee</div>
+              <div class="table__cell" role="columnheader">Department</div>
+              <div class="table__cell" role="columnheader">Pay schedule</div>
+              <div class="table__cell" role="columnheader">Current balance (hrs)</div>
+              <div class="table__cell" role="columnheader">Adjust by (hrs)</div>
+              <div class="table__cell" role="columnheader">Reason</div>
+              <div class="table__cell" role="columnheader">Action</div>
+            </div>
+            <div id="ptoTableBody"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('payrollAuthToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      const logoutBtn = document.getElementById('logoutBtn');
+      logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('payrollAuthToken');
+        window.location.href = '/';
+      });
+
+      const tableBody = document.getElementById('ptoTableBody');
+      const emptyState = document.getElementById('emptyState');
+      const tableContainer = document.getElementById('tableContainer');
+      const statusText = document.getElementById('statusText');
+      const refreshBtn = document.getElementById('refreshBtn');
+
+      let employees = [];
+
+      function formatHours(value) {
+        const num = Number(value) || 0;
+        return num.toFixed(2);
+      }
+
+      function setStatus(message, tone = 'muted') {
+        statusText.textContent = message || '';
+        statusText.className = tone === 'error' ? 'error' : 'muted';
+      }
+
+      function renderEmployees() {
+        if (!employees.length) {
+          emptyState.style.display = 'block';
+          tableContainer.style.display = 'none';
+          return;
+        }
+
+        emptyState.style.display = 'none';
+        tableContainer.style.display = 'block';
+
+        tableBody.innerHTML = employees
+          .map(
+            (employee) => `
+              <div class="table__row" role="row" data-row="${employee.id}">
+                <div class="table__cell" role="cell">
+                  <div>${employee.name || 'Unnamed employee'}</div>
+                  <div class="muted" style="font-size: 0.9em;">${employee.id}</div>
+                </div>
+                <div class="table__cell" role="cell">${employee.department || '—'}</div>
+                <div class="table__cell" role="cell">${employee.pay_schedule || '—'}</div>
+                <div class="table__cell" role="cell" data-balance="${employee.id}">${formatHours(employee.pto_balance_hours)} hrs</div>
+                <div class="table__cell" role="cell">
+                  <input
+                    aria-label="PTO adjustment for ${employee.name}"
+                    type="number"
+                    step="0.1"
+                    value="0"
+                    class="input"
+                    data-adjust="${employee.id}"
+                    style="max-width: 120px;"
+                  />
+                </div>
+                <div class="table__cell" role="cell">
+                  <input
+                    aria-label="Adjustment reason for ${employee.name}"
+                    type="text"
+                    placeholder="e.g., accrual, payout"
+                    class="input"
+                    data-reason="${employee.id}"
+                  />
+                </div>
+                <div class="table__cell" role="cell">
+                  <div class="inline-actions" style="gap: 8px;">
+                    <button class="btn small" data-save="${employee.id}">Apply</button>
+                    <span class="muted" data-status="${employee.id}" aria-live="polite"></span>
+                  </div>
+                </div>
+              </div>
+            `
+          )
+          .join('');
+
+        document.querySelectorAll('[data-save]').forEach((button) => {
+          button.addEventListener('click', () => handleAdjustment(button.dataset.save));
+        });
+      }
+
+      async function loadPtoBalances() {
+        setStatus('Loading PTO balances…');
+        try {
+          const res = await fetch('/api/pto');
+          if (!res.ok) {
+            throw new Error('Unable to load PTO balances');
+          }
+          const data = await res.json();
+          employees = Array.isArray(data.employees) ? data.employees : [];
+          renderEmployees();
+          setStatus('');
+        } catch (error) {
+          console.error(error);
+          setStatus('Unable to load PTO balances right now.', 'error');
+        }
+      }
+
+      async function handleAdjustment(employeeId) {
+        const amountInput = document.querySelector(`[data-adjust="${employeeId}"]`);
+        const reasonInput = document.querySelector(`[data-reason="${employeeId}"]`);
+        const statusCell = document.querySelector(`[data-status="${employeeId}"]`);
+
+        const amount = Number(amountInput.value);
+        const reason = (reasonInput.value || '').trim();
+
+        if (!Number.isFinite(amount)) {
+          statusCell.textContent = 'Enter a valid number of hours.';
+          statusCell.className = 'error';
+          return;
+        }
+
+        statusCell.textContent = 'Saving…';
+        statusCell.className = 'muted';
+
+        try {
+          const res = await fetch('/api/pto', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              adjustments: [
+                {
+                  employeeId,
+                  amount,
+                  reason
+                }
+              ]
+            })
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            const message = data?.error || 'Unable to save adjustment.';
+            statusCell.textContent = message;
+            statusCell.className = 'error';
+            return;
+          }
+
+          employees = Array.isArray(data.employees) ? data.employees : employees;
+          renderEmployees();
+          setStatus('PTO balance updated.');
+          amountInput.value = '0';
+          reasonInput.value = '';
+        } catch (error) {
+          console.error(error);
+          statusCell.textContent = 'Unable to save adjustment right now.';
+          statusCell.className = 'error';
+        }
+      }
+
+      refreshBtn.addEventListener('click', loadPtoBalances);
+      loadPtoBalances();
+    </script>
+  </body>
+</html>
