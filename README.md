@@ -44,6 +44,12 @@ npm install
 npm run start
 ```
 
+Via Docker Compose (builds `Dockerfile.wizard` and binds port 3000):
+
+```bash
+docker compose up --build wizard
+```
+
 Wizard server:
 - http://localhost:3000
 

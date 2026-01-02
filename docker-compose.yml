@@ -1,4 +1,17 @@
 services:
+  wizard:
+    build:
+      context: .
+      dockerfile: Dockerfile.wizard
+    command: npm start
+    environment:
+      - ADMIN_TOKEN=changeme
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+
   api:
     build: ./backend
     working_dir: /app
