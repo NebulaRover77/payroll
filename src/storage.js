@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const setupPath = path.join(__dirname, '..', 'data', 'setup.json');
-const auditPath = path.join(__dirname, '..', 'data', 'audit-log.json');
+const dataDir = path.join(__dirname, '..', 'data');
+const setupPath = path.join(dataDir, 'setup.json');
+const auditPath = path.join(dataDir, 'audit-log.json');
 
 const defaultSetup = {
   company: null,
@@ -14,6 +15,7 @@ const defaultSetup = {
 };
 
 function ensureFiles() {
+  ensureDataDir();
   if (!fs.existsSync(setupPath)) {
     writeJson(setupPath, defaultSetup);
   }
@@ -22,7 +24,14 @@ function ensureFiles() {
   }
 }
 
+function ensureDataDir() {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+}
+
 function writeJson(filePath, data) {
+  ensureDataDir();
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
