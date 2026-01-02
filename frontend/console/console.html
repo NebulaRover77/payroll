@@ -23,6 +23,7 @@
         <li><a href="#time">Time</a></li>
         <li><a href="#payroll">Payroll</a></li>
         <li><a href="#reports">Reports</a></li>
+        <li><a href="#admin">Admin</a></li>
       </ul>
     </nav>
   </header>
@@ -281,6 +282,70 @@
           <p class="muted">Snapshot of the last five payrolls.</p>
           <ul id="net-trend" class="pill-list"></ul>
         </article>
+      </div>
+    </section>
+
+    <section id="admin" class="panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Access</p>
+          <h2>User provisioning</h2>
+          <p class="muted">Create console users and assign the right level of access.</p>
+        </div>
+        <div class="pill">Admin only</div>
+      </div>
+
+      <div class="split admin-grid">
+        <form id="user-form" class="form-card">
+          <div class="form-row">
+            <label for="user-email">Work email</label>
+            <input id="user-email" name="email" type="email" required placeholder="payroll@example.com" />
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="user-role">Role</label>
+              <select id="user-role" name="role">
+                <option value="admin">Admin</option>
+                <option value="payroll">Payroll</option>
+                <option value="people_ops">People Ops</option>
+                <option value="viewer">Viewer</option>
+              </select>
+              <small class="muted">Controls what they can see and edit.</small>
+            </div>
+            <div class="form-row">
+              <label for="user-password">Temporary password</label>
+              <input
+                id="user-password"
+                name="password"
+                type="password"
+                minlength="8"
+                required
+                placeholder="At least 8 characters"
+              />
+              <small class="muted">They should reset this on first login.</small>
+            </div>
+          </div>
+          <button class="btn primary" type="submit">Create user</button>
+        </form>
+
+        <div class="table-card">
+          <div class="table-head">
+            <p>Directory</p>
+            <div class="pill subtle-pill">Passwords are never shown</div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Added</th>
+                </tr>
+              </thead>
+              <tbody id="user-table"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
   </main>

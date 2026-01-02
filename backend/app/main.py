@@ -11,6 +11,7 @@ from app.domains.employees.router import router as employee_router
 from app.domains.payments.router import router as payments_router
 from app.domains.payroll.router import router as payroll_router
 from app.domains.reporting.router import router as reporting_router
+from app.domains.users.router import router as users_router
 from app.domains.time_entries.router import router as time_router
 
 configure_logging(settings.log_level)
@@ -35,6 +36,7 @@ app.include_router(time_router)
 app.include_router(payroll_router)
 app.include_router(payments_router)
 app.include_router(reporting_router)
+app.include_router(users_router)
 
 
 @app.on_event("startup")

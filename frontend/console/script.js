@@ -26,6 +26,7 @@ const state = {
   employees: [],
   timeEntries: [],
   payrollRuns: [],
+  users: [],
 };
 
 let API_OK = false;
@@ -39,6 +40,7 @@ async function probeApi() {
     await api('/health');
 
     const employees = await api('/employees');
+    await api('/users');
     const required = [
       'id',
       'name',
@@ -68,6 +70,7 @@ async function loadStateFromApi() {
   state.employees = await api('/employees').catch(() => []);
   state.timeEntries = await api('/time').catch(() => []);
   state.payrollRuns = await api('/payroll').catch(() => []);
+  state.users = await api('/users').catch(() => []);
 }
 
 const storageKey = 'nebulaPayrollState';
@@ -89,6 +92,7 @@ function loadState() {
       state.employees = parsed.employees || [];
       state.timeEntries = parsed.timeEntries || [];
       state.payrollRuns = parsed.payrollRuns || [];
+      state.users = parsed.users || [];
       return;
     } catch (e) {
       console.warn('Could not parse saved state', e);
@@ -161,10 +165,30 @@ function seedData() {
   ];
 
   state.payrollRuns = [];
+  state.users = [
+    {
+      id: crypto.randomUUID(),
+      email: 'admin@example.com',
+      role: 'admin',
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: crypto.randomUUID(),
+      email: 'payroll@example.com',
+      role: 'payroll',
+      created_at: new Date().toISOString(),
+    },
+  ];
 }
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function renderEmployees(filter = '') {
@@ -192,6 +216,26 @@ function renderEmployees(filter = '') {
         <td><button class="btn ghost" data-remove="${emp.id}">Remove</button></td>
       `;
 
+      tbody.appendChild(row);
+    });
+}
+
+function renderUsers() {
+  const tbody = $('user-table');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  state.users
+    .slice()
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .forEach((user) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><div class="strong">${user.email}</div></td>
+        <td><span class="badge">${user.role.replace('_', ' ')}</span></td>
+        <td>${formatDateTime(user.created_at)}</td>
+      `;
       tbody.appendChild(row);
     });
 }
@@ -438,6 +482,39 @@ function renderReports() {
 }
 
 function attachHandlers() {
+  $('user-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+
+    const payload = {
+      email: form.get('email'),
+      role: form.get('role'),
+      password: form.get('password'),
+    };
+
+    try {
+      if (API_OK) {
+        const created = await api('/users', { method: 'POST', body: payload });
+        state.users.unshift(created);
+      } else {
+        state.users.unshift({
+          id: crypto.randomUUID(),
+          email: payload.email,
+          role: payload.role,
+          created_at: new Date().toISOString(),
+        });
+        saveState();
+      }
+
+      renderUsers();
+      e.target.reset();
+      $('user-role').value = 'viewer';
+    } catch (err) {
+      console.error('Failed to create user', err);
+      alert(String(err));
+    }
+  });
+
   $('employee-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = new FormData(e.target);
@@ -599,6 +676,7 @@ async function init() {
   renderPayroll();
   renderMetrics();
   renderReports();
+  renderUsers();
   renderPreview();
 
   $('time-date').value = localISODate();
