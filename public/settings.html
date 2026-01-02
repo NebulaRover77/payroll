@@ -15,45 +15,7 @@
     </header>
 
     <div class="app-layout">
-      <nav class="sidebar" aria-label="Primary">
-        <div class="nav-group">
-          <div class="nav-label">Main</div>
-          <a class="nav-link" href="/dashboard.html">Dashboard</a>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-label">Payroll</div>
-          <a class="nav-link" href="/payroll-new.html">Run a New Payroll</a>
-          <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
-          <a class="nav-link" href="/payroll-view.html">View Payroll</a>
-          <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
-          <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-label">Employees</div>
-          <a class="nav-link" href="/employees.html">List Employees</a>
-          <a class="nav-link" href="/employee-add.html">Add Employee</a>
-          <a class="nav-link" href="/pay-schedules.html">Edit Pay Schedules</a>
-          <a class="nav-link" href="/manage-pto.html">Manage PTO</a>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-label">Time Tracking</div>
-          <a class="nav-link" href="/timesheets.html">Timesheets</a>
-          <a class="nav-link" href="/approvals.html">Approvals</a>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-label">Reports</div>
-          <a class="nav-link" href="/reports.html">View Reports</a>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-label">Settings</div>
-          <a class="nav-link active" aria-current="page" href="/settings.html">Company Settings</a>
-        </div>
-      </nav>
+      <nav class="sidebar" aria-label="Primary" id="sidebar" data-sidebar></nav>
 
       <main class="workspace">
         <section class="workspace__heading">
@@ -75,6 +37,7 @@
         </section>
       </main>
     </div>
+    <script src="/sidebar.js"></script>
 
     <script>
       const token = localStorage.getItem('payrollAuthToken');

@@ -632,12 +632,22 @@ function handleApi(req, res) {
         if (!runId) return sendJson(res, 400, { error: 'Run ID is required' });
         const store = readStore();
         const payrollRuns = Array.isArray(store.payroll_runs) ? store.payroll_runs : [];
-        const nextRuns = payrollRuns.filter((item) => item.id !== runId);
-        if (nextRuns.length === payrollRuns.length) {
+        const run = payrollRuns.find((item) => item.id === runId);
+        if (!run) {
           return sendJson(res, 404, { error: 'Payroll run not found' });
         }
-        saveStore({ ...store, payroll_runs: nextRuns });
-        audit('user', 'payroll.delete', { runId });
+        const nextRuns = payrollRuns.filter((item) => item.id !== runId);
+        const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+        let reverted = 0;
+        entries.forEach((entry) => {
+          if (entry.start_date === run.start_date && entry.end_date === run.end_date && entry.status === 'paid') {
+            entry.status = 'approved';
+            delete entry.paid_at;
+            reverted += 1;
+          }
+        });
+        saveStore({ ...store, payroll_runs: nextRuns, time_entries: entries });
+        audit('user', 'payroll.delete', { runId, reverted });
         return sendJson(res, 200, { runs: nextRuns });
       })
       .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
