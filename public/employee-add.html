@@ -69,14 +69,48 @@
 
           <form id="employeeForm" class="form-grid" style="margin-top: 20px;">
             <div>
-              <label for="name">Full name</label>
-              <input id="name" name="name" required placeholder="Alex Rivera" />
-              <div class="error" data-error="name"></div>
+              <label for="firstName">First name</label>
+              <input id="firstName" name="firstName" required placeholder="Alex" />
+              <div class="error" data-error="firstName"></div>
             </div>
             <div>
-              <label for="department">Department</label>
-              <input id="department" name="department" required placeholder="Engineering" />
-              <div class="error" data-error="department"></div>
+              <label for="middleName">Middle name (optional)</label>
+              <input id="middleName" name="middleName" placeholder="M." />
+            </div>
+            <div>
+              <label for="lastName">Last name</label>
+              <input id="lastName" name="lastName" required placeholder="Rivera" />
+              <div class="error" data-error="lastName"></div>
+            </div>
+            <div>
+              <label for="dob">Date of birth</label>
+              <input id="dob" name="dob" type="date" required />
+              <div class="error" data-error="dob"></div>
+            </div>
+            <div>
+              <label for="ssn">Social Security number</label>
+              <input id="ssn" name="ssn" required placeholder="123-45-6789" />
+              <div class="error" data-error="ssn"></div>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label for="address">Home address</label>
+              <textarea id="address" name="address" rows="3" required placeholder="123 Main St, Springfield, IL 62704"></textarea>
+              <div class="error" data-error="address"></div>
+            </div>
+            <div>
+              <label for="email">Email (optional)</label>
+              <input id="email" name="email" type="email" placeholder="alex@example.com" />
+            </div>
+            <div>
+              <label for="phone">Cell phone (optional)</label>
+              <input id="phone" name="phone" type="tel" placeholder="(555) 555-5555" />
+            </div>
+            <div>
+              <label for="paySchedule">Pay schedule</label>
+              <select id="paySchedule" name="paySchedule" required>
+                <option value="">Loading options...</option>
+              </select>
+              <div class="error" data-error="paySchedule"></div>
             </div>
             <div>
               <label for="employeeId">Employee ID (optional)</label>
@@ -115,6 +149,7 @@
       const form = document.getElementById('employeeForm');
       const statusEl = document.getElementById('formStatus');
       const submitBtn = document.getElementById('submitBtn');
+      const payScheduleSelect = document.getElementById('paySchedule');
 
       function setStatus(message, isError = false) {
         statusEl.textContent = message;
@@ -131,14 +166,21 @@
       async function submitEmployee(event) {
         event.preventDefault();
         setStatus('Saving new employee...');
-        setFieldError('name');
-        setFieldError('department');
-        setFieldError('ptoBalance');
+        ['firstName', 'lastName', 'dob', 'ssn', 'address', 'paySchedule', 'ptoBalance'].forEach((field) => {
+          setFieldError(field);
+        });
         submitBtn.disabled = true;
 
         const payload = {
-          name: document.getElementById('name').value.trim(),
-          department: document.getElementById('department').value.trim(),
+          first_name: document.getElementById('firstName').value.trim(),
+          middle_name: document.getElementById('middleName').value.trim(),
+          last_name: document.getElementById('lastName').value.trim(),
+          dob: document.getElementById('dob').value,
+          ssn: document.getElementById('ssn').value.trim(),
+          address: document.getElementById('address').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          phone: document.getElementById('phone').value.trim(),
+          pay_schedule: payScheduleSelect.value,
           id: document.getElementById('employeeId').value.trim(),
           pto_balance_hours: Number(document.getElementById('ptoBalance').value || 0)
         };
@@ -154,12 +196,13 @@
           if (!response.ok) {
             if (response.status === 400 && result?.error) {
               setStatus(result.error, true);
-              if (result.error.toLowerCase().includes('name')) {
-                setFieldError('name', 'Name is required');
-              }
-              if (result.error.toLowerCase().includes('department')) {
-                setFieldError('department', 'Department is required');
-              }
+              const errorText = result.error.toLowerCase();
+              if (errorText.includes('first name')) setFieldError('firstName', 'First name is required');
+              if (errorText.includes('last name')) setFieldError('lastName', 'Last name is required');
+              if (errorText.includes('birth')) setFieldError('dob', 'Enter a valid date of birth');
+              if (errorText.includes('ssn')) setFieldError('ssn', 'Enter a valid SSN');
+              if (errorText.includes('address')) setFieldError('address', 'Address is required');
+              if (errorText.includes('pay schedule')) setFieldError('paySchedule', 'Select a pay schedule');
             } else {
               setStatus('Unable to save employee right now.', true);
             }
@@ -179,6 +222,23 @@
         }
       }
 
+      async function loadPaySchedules() {
+        try {
+          const response = await fetch('/api/metadata');
+          const metadata = await response.json();
+          const schedules = Array.isArray(metadata.paySchedules) && metadata.paySchedules.length
+            ? metadata.paySchedules
+            : [{ name: 'Monthly', cadence: 'monthly' }];
+          payScheduleSelect.innerHTML = schedules
+            .map((schedule) => `<option value="${schedule.name}">${schedule.name}</option>`)
+            .join('');
+        } catch (error) {
+          console.error('Unable to load pay schedules', error);
+          payScheduleSelect.innerHTML = '<option value="Monthly">Monthly</option>';
+        }
+      }
+
+      loadPaySchedules();
       form.addEventListener('submit', submitEmployee);
     </script>
   </body>
