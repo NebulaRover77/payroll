@@ -1,12 +1,85 @@
+const API_BASE = '/api';
+
+async function api(path, { method = 'GET', headers = {}, body } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  // helpful errors in the console
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`${method} ${path} -> ${res.status} ${res.statusText}\n${text}`);
+  }
+
+  // handle 204 / empty
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) return null;
+  return res.json();
+}
+
 const state = {
   employees: [],
   timeEntries: [],
   payrollRuns: [],
 };
 
+let API_OK = false;
+
+function persistIfOffline() {
+  if (!API_OK) saveState();
+}
+
+async function probeApi() {
+  try {
+    await api('/health');
+
+    const employees = await api('/employees');
+    const required = [
+      'id',
+      'name',
+      'role',
+      'type',
+      'rate',
+      'defaultHours',
+      'status',
+      'tax',
+    ];
+
+    const ok =
+      Array.isArray(employees) &&
+      employees.every((e) => e && required.every((k) => k in e));
+
+    if (!ok) throw new Error('employees endpoint not console-ready');
+
+    API_OK = true;
+  } catch (e) {
+    console.warn('Backend not ready for console (falling back to demo mode).', e);
+    API_OK = false;
+  }
+}
+
+async function loadStateFromApi() {
+  // Each call is isolated so one missing endpoint doesn’t break everything.
+  state.employees = await api('/employees').catch(() => []);
+  state.timeEntries = await api('/time').catch(() => []);
+  state.payrollRuns = await api('/payroll').catch(() => []);
+}
+
 const storageKey = 'nebulaPayrollState';
 
 const $ = (id) => document.getElementById(id);
+
+function localISODate(d = new Date()) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 function loadState() {
   const saved = localStorage.getItem(storageKey);
@@ -21,6 +94,7 @@ function loadState() {
       console.warn('Could not parse saved state', e);
     }
   }
+
   seedData();
 }
 
@@ -30,17 +104,62 @@ function saveState() {
 
 function seedData() {
   state.employees = [
-    { id: crypto.randomUUID(), name: 'Alex Chen', role: 'Payroll Analyst', type: 'salary', rate: 3600, defaultHours: 80, status: 'active', tax: 'standard' },
-    { id: crypto.randomUUID(), name: 'Priya Patel', role: 'Support Lead', type: 'hourly', rate: 38, defaultHours: 80, status: 'active', tax: 'low' },
-    { id: crypto.randomUUID(), name: 'Marcos Diaz', role: 'Implementation', type: 'hourly', rate: 42, defaultHours: 60, status: 'on_leave', tax: 'standard' },
+    {
+      id: crypto.randomUUID(),
+      name: 'Alex Chen',
+      role: 'Payroll Analyst',
+      type: 'salary',
+      rate: 3600,
+      defaultHours: 80,
+      status: 'active',
+      tax: 'standard',
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Priya Patel',
+      role: 'Support Lead',
+      type: 'hourly',
+      rate: 38,
+      defaultHours: 80,
+      status: 'active',
+      tax: 'low',
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Marcos Diaz',
+      role: 'Implementation',
+      type: 'hourly',
+      rate: 42,
+      defaultHours: 60,
+      status: 'on_leave',
+      tax: 'standard',
+    },
   ];
+
   const today = new Date();
   const dayMs = 86400000;
+
   state.timeEntries = [
-    { id: crypto.randomUUID(), employeeId: state.employees[1].id, date: new Date(today - dayMs * 2).toISOString().slice(0, 10), hours: 8 },
-    { id: crypto.randomUUID(), employeeId: state.employees[1].id, date: new Date(today - dayMs * 3).toISOString().slice(0, 10), hours: 7.5 },
-    { id: crypto.randomUUID(), employeeId: state.employees[0].id, date: new Date(today - dayMs * 4).toISOString().slice(0, 10), hours: 8 },
+    {
+      id: crypto.randomUUID(),
+      employeeId: state.employees[1].id,
+      date: new Date(today - dayMs * 2).toISOString().slice(0, 10),
+      hours: 8,
+    },
+    {
+      id: crypto.randomUUID(),
+      employeeId: state.employees[1].id,
+      date: new Date(today - dayMs * 3).toISOString().slice(0, 10),
+      hours: 7.5,
+    },
+    {
+      id: crypto.randomUUID(),
+      employeeId: state.employees[0].id,
+      date: new Date(today - dayMs * 4).toISOString().slice(0, 10),
+      hours: 8,
+    },
   ];
+
   state.payrollRuns = [];
 }
 
@@ -52,11 +171,16 @@ function renderEmployees(filter = '') {
   const tbody = $('employee-table');
   const query = filter.toLowerCase();
   tbody.innerHTML = '';
+
   state.employees
     .filter((emp) => emp.name.toLowerCase().includes(query))
     .forEach((emp) => {
       const row = document.createElement('tr');
-      const payLabel = emp.type === 'hourly' ? `${formatCurrency(emp.rate)}/hr` : `${formatCurrency(emp.rate)} salary`;
+      const payLabel =
+        emp.type === 'hourly'
+          ? `${formatCurrency(emp.rate)}/hr`
+          : `${formatCurrency(emp.rate)} salary`;
+
       row.innerHTML = `
         <td>
           <div class="strong">${emp.name}</div>
@@ -67,6 +191,7 @@ function renderEmployees(filter = '') {
         <td><span class="badge ${emp.status}">${emp.status.replace('_', ' ')}</span></td>
         <td><button class="btn ghost" data-remove="${emp.id}">Remove</button></td>
       `;
+
       tbody.appendChild(row);
     });
 }
@@ -74,6 +199,7 @@ function renderEmployees(filter = '') {
 function renderEmployeeOptions() {
   const select = $('time-employee');
   select.innerHTML = '';
+
   state.employees
     .filter((emp) => emp.status === 'active')
     .forEach((emp) => {
@@ -87,22 +213,30 @@ function renderEmployeeOptions() {
 function renderTimeEntries(range = '7') {
   const tbody = $('time-table');
   tbody.innerHTML = '';
+
   const now = Date.now();
   let entries = [...state.timeEntries];
+
   if (range !== 'all') {
     const days = parseInt(range, 10);
-    entries = entries.filter((entry) => now - new Date(entry.date).getTime() <= days * 86400000);
+    entries = entries.filter(
+      (entry) => now - new Date(entry.date).getTime() <= days * 86400000
+    );
   }
+
   entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+
   entries.forEach((entry) => {
     const emp = state.employees.find((e) => e.id === entry.employeeId);
     const row = document.createElement('tr');
+
     row.innerHTML = `
       <td>${emp ? emp.name : 'Former employee'}</td>
       <td>${entry.date}</td>
       <td>${entry.hours}</td>
       <td><button class="btn ghost" data-remove-time="${entry.id}">Delete</button></td>
     `;
+
     tbody.appendChild(row);
   });
 }
@@ -110,17 +244,26 @@ function renderTimeEntries(range = '7') {
 function computeDeductions(gross, taxProfile) {
   const baseFederal = 0.1 * gross;
   const baseState = 0.05 * gross;
+
   let modifier = 1;
   if (taxProfile === 'high') modifier = 1.2;
   if (taxProfile === 'low') modifier = 0.8;
+
   const benefits = gross * 0.03;
   const total = (baseFederal + baseState) * modifier + benefits;
-  return { total, federal: baseFederal * modifier, state: baseState * modifier, benefits };
+
+  return {
+    total,
+    federal: baseFederal * modifier,
+    state: baseState * modifier,
+    benefits,
+  };
 }
 
 function runPayroll({ start, end, notes }) {
   const periodStart = new Date(start);
   const periodEnd = new Date(end);
+
   const run = {
     id: crypto.randomUUID(),
     status: 'draft',
@@ -132,12 +275,21 @@ function runPayroll({ start, end, notes }) {
   };
 
   state.employees.forEach((emp) => {
-    const entries = state.timeEntries.filter((t) => t.employeeId === emp.id && new Date(t.date) >= periodStart && new Date(t.date) <= periodEnd);
+    const entries = state.timeEntries.filter(
+      (t) =>
+        t.employeeId === emp.id &&
+        new Date(t.date) >= periodStart &&
+        new Date(t.date) <= periodEnd
+    );
+
     const hours = entries.reduce((sum, e) => sum + Number(e.hours), 0);
     const gross = emp.type === 'hourly' ? emp.rate * hours : emp.rate;
+
     if (gross === 0 && emp.type === 'hourly') return;
+
     const deductions = computeDeductions(gross, emp.tax);
     const net = Math.max(gross - deductions.total, 0);
+
     run.entries.push({
       employeeId: emp.id,
       hours,
@@ -149,8 +301,10 @@ function runPayroll({ start, end, notes }) {
 
   run.netTotal = run.entries.reduce((sum, e) => sum + e.net, 0);
   run.headcount = run.entries.length;
+
   state.payrollRuns.unshift(run);
   saveState();
+
   renderPayroll();
   renderMetrics();
   renderReports();
@@ -160,10 +314,12 @@ function runPayroll({ start, end, notes }) {
 function renderPayroll(filter = 'all') {
   const tbody = $('payroll-table');
   tbody.innerHTML = '';
+
   state.payrollRuns
     .filter((run) => filter === 'all' || run.status === filter)
     .forEach((run) => {
       const row = document.createElement('tr');
+
       row.innerHTML = `
         <td>${run.start} → ${run.end}</td>
         <td><span class="badge ${run.status}">${run.status}</span></td>
@@ -174,24 +330,34 @@ function renderPayroll(filter = 'all') {
           <button class="btn ghost" data-action="preview">Preview</button>
         </td>
       `;
+
       tbody.appendChild(row);
     });
 }
 
 function renderPreview(run) {
   if (!run) {
-    $('payroll-preview').innerHTML = '<p class="muted">Generate a run to see the breakdown.</p>';
+    $('payroll-preview').innerHTML =
+      '<p class="muted">Generate a run to see the breakdown.</p>';
     return;
   }
+
   const employees = run.entries
     .map((entry) => {
       const emp = state.employees.find((e) => e.id === entry.employeeId);
-      return `<li><strong>${emp ? emp.name : 'Former employee'}</strong> — ${formatCurrency(entry.net)} net (${formatCurrency(entry.gross)} gross, ${formatCurrency(entry.deductions.total)} deductions)</li>`;
+      return `<li><strong>${
+        emp ? emp.name : 'Former employee'
+      }</strong> — ${formatCurrency(entry.net)} net (${formatCurrency(
+        entry.gross
+      )} gross, ${formatCurrency(entry.deductions.total)} deductions)</li>`;
     })
     .join('');
+
   $('payroll-preview').innerHTML = `
     <h3>Run ${run.start} → ${run.end}</h3>
-    <p class="muted">${run.notes || 'No notes'} · ${run.status.toUpperCase()} · ${run.entries.length} employees</p>
+    <p class="muted">${run.notes || 'No notes'} · ${run.status.toUpperCase()} · ${
+    run.entries.length
+  } employees</p>
     <ul>${employees}</ul>
     <p><strong>Total net:</strong> ${formatCurrency(run.netTotal)}</p>
   `;
@@ -199,10 +365,13 @@ function renderPreview(run) {
 
 function renderMetrics() {
   $('metric-employees').textContent = state.employees.length;
+
   const pendingHours = state.timeEntries.reduce((sum, e) => sum + Number(e.hours), 0);
   $('metric-hours').textContent = pendingHours.toFixed(1);
+
   const lastRun = state.payrollRuns[0];
   $('metric-last').textContent = lastRun ? formatCurrency(lastRun.netTotal) : '—';
+
   const drafts = state.payrollRuns.filter((r) => r.status === 'draft').length;
   $('metric-drafts').textContent = drafts;
 }
@@ -210,21 +379,30 @@ function renderMetrics() {
 function renderReports() {
   const labor = $('labor-mix');
   labor.innerHTML = '';
+
   const latest = state.payrollRuns[0];
   if (latest) {
-    const hourly = latest.entries.filter((e) => {
-      const emp = state.employees.find((x) => x.id === e.employeeId);
-      return emp?.type === 'hourly';
-    }).reduce((sum, e) => sum + e.net, 0);
-    const salary = latest.entries.filter((e) => {
-      const emp = state.employees.find((x) => x.id === e.employeeId);
-      return emp?.type === 'salary';
-    }).reduce((sum, e) => sum + e.net, 0);
+    const hourly = latest.entries
+      .filter((e) => {
+        const emp = state.employees.find((x) => x.id === e.employeeId);
+        return emp?.type === 'hourly';
+      })
+      .reduce((sum, e) => sum + e.net, 0);
+
+    const salary = latest.entries
+      .filter((e) => {
+        const emp = state.employees.find((x) => x.id === e.employeeId);
+        return emp?.type === 'salary';
+      })
+      .reduce((sum, e) => sum + e.net, 0);
+
     const total = hourly + salary || 1;
+
     const items = [
       { label: 'Hourly', value: hourly, pct: Math.round((hourly / total) * 100) },
       { label: 'Salary', value: salary, pct: Math.round((salary / total) * 100) },
     ];
+
     items.forEach((item) => {
       const li = document.createElement('li');
       li.textContent = `${item.label}: ${formatCurrency(item.value)} (${item.pct}% )`;
@@ -236,18 +414,22 @@ function renderReports() {
 
   const audit = $('audit-log');
   audit.innerHTML = '';
+
   state.payrollRuns.slice(0, 5).forEach((run) => {
     const item = document.createElement('div');
     item.className = 'audit-item';
     item.innerHTML = `
       <div class="strong">${run.start} → ${run.end} · ${run.status.toUpperCase()}</div>
-      <div class="muted small">${run.entries.length} employees · ${formatCurrency(run.netTotal)} net · ${run.notes || 'No notes'}</div>
+      <div class="muted small">${run.entries.length} employees · ${formatCurrency(
+      run.netTotal
+    )} net · ${run.notes || 'No notes'}</div>
     `;
     audit.appendChild(item);
   });
 
   const trend = $('net-trend');
   trend.innerHTML = '';
+
   state.payrollRuns.slice(0, 5).forEach((run, index) => {
     const li = document.createElement('li');
     li.textContent = `#${state.payrollRuns.length - index} · ${formatCurrency(run.netTotal)}`;
@@ -256,11 +438,11 @@ function renderReports() {
 }
 
 function attachHandlers() {
-  $('employee-form').addEventListener('submit', (e) => {
+  $('employee-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = new FormData(e.target);
-    const employee = {
-      id: crypto.randomUUID(),
+
+    const payload = {
       name: form.get('name'),
       role: form.get('role'),
       type: form.get('type'),
@@ -269,24 +451,48 @@ function attachHandlers() {
       status: form.get('status'),
       tax: form.get('tax'),
     };
-    state.employees.unshift(employee);
-    saveState();
-    renderEmployees($('employee-search').value);
-    renderEmployeeOptions();
-    renderMetrics();
-    e.target.reset();
+
+    try {
+      if (API_OK) {
+        const created = await api('/employees', { method: 'POST', body: payload });
+        state.employees.unshift(created);
+      } else {
+        state.employees.unshift({ id: crypto.randomUUID(), ...payload });
+        saveState();
+      }
+
+      renderEmployees($('employee-search').value);
+      renderEmployeeOptions();
+      renderMetrics();
+      e.target.reset();
+    } catch (err) {
+      console.error('Failed to create employee', err);
+      alert(String(err));
+    }
   });
 
-  $('employee-table').addEventListener('click', (e) => {
+  $('employee-table').addEventListener('click', async (e) => {
     const id = e.target.getAttribute('data-remove');
     if (!id) return;
-    state.employees = state.employees.filter((emp) => emp.id !== id);
-    state.timeEntries = state.timeEntries.filter((t) => t.employeeId !== id);
-    saveState();
-    renderEmployees($('employee-search').value);
-    renderEmployeeOptions();
-    renderTimeEntries($('time-range').value);
-    renderMetrics();
+
+    try {
+      if (API_OK) {
+        await api(`/employees/${id}`, { method: 'DELETE' });
+      }
+
+      state.employees = state.employees.filter((emp) => String(emp.id) !== String(id));
+      state.timeEntries = state.timeEntries.filter((t) => String(t.employeeId) !== String(id));
+
+      if (!API_OK) saveState();
+
+      renderEmployees($('employee-search').value);
+      renderEmployeeOptions();
+      renderTimeEntries($('time-range').value);
+      renderMetrics();
+    } catch (err) {
+      console.error('Failed to delete employee', err);
+      alert(String(err));
+    }
   });
 
   $('employee-search').addEventListener('input', (e) => renderEmployees(e.target.value));
@@ -294,21 +500,25 @@ function attachHandlers() {
   $('time-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const form = new FormData(e.target);
+
     state.timeEntries.unshift({
       id: crypto.randomUUID(),
       employeeId: form.get('employee'),
       date: form.get('date'),
       hours: Number(form.get('hours')),
     });
+
     saveState();
     renderTimeEntries($('time-range').value);
     renderMetrics();
     e.target.reset();
+    $('time-date').value = localISODate();
   });
 
   $('time-table').addEventListener('click', (e) => {
     const id = e.target.getAttribute('data-remove-time');
     if (!id) return;
+
     state.timeEntries = state.timeEntries.filter((entry) => entry.id !== id);
     saveState();
     renderTimeEntries($('time-range').value);
@@ -329,9 +539,11 @@ function attachHandlers() {
   $('payroll-table').addEventListener('click', (e) => {
     const action = e.target.getAttribute('data-action');
     if (!action) return;
+
     const runId = e.target.closest('.actions').dataset.id;
     const run = state.payrollRuns.find((r) => r.id === runId);
     if (!run) return;
+
     if (action === 'process') {
       run.status = 'processed';
       saveState();
@@ -340,6 +552,7 @@ function attachHandlers() {
       renderReports();
       renderPreview(run);
     }
+
     if (action === 'preview') {
       renderPreview(run);
     }
@@ -348,16 +561,19 @@ function attachHandlers() {
   $('quick-run').addEventListener('click', () => {
     document.querySelector('a[href="#payroll"]').scrollIntoView({ behavior: 'smooth' });
   });
+
   $('quick-add').addEventListener('click', () => {
     document.querySelector('a[href="#employees"]').scrollIntoView({ behavior: 'smooth' });
   });
 
   const navToggle = document.querySelector('.nav-toggle');
   const navLinks = document.querySelector('.nav-links');
+
   navToggle.addEventListener('click', () => {
     const open = navLinks.classList.toggle('open');
     navToggle.setAttribute('aria-expanded', String(open));
   });
+
   navLinks.querySelectorAll('a').forEach((link) => {
     link.addEventListener('click', () => {
       navLinks.classList.remove('open');
@@ -366,8 +582,17 @@ function attachHandlers() {
   });
 }
 
-function init() {
-  loadState();
+let HANDLERS_BOUND = false;
+
+async function init() {
+  await probeApi();
+
+  if (API_OK) {
+    await loadStateFromApi();
+  } else {
+    loadState(); // your existing localStorage + seedData path
+  }
+
   renderEmployees();
   renderEmployeeOptions();
   renderTimeEntries();
@@ -375,7 +600,15 @@ function init() {
   renderMetrics();
   renderReports();
   renderPreview();
-  attachHandlers();
+
+  $('time-date').value = localISODate();
+
+  if (!HANDLERS_BOUND) {
+    attachHandlers();
+    HANDLERS_BOUND = true;
+  }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch((e) => console.error('init failed', e));
+});
