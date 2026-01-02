@@ -102,6 +102,15 @@ function loadEmployeeById(employeeId) {
   return employees.find((employee) => employee.id === employeeId);
 }
 
+function loadPaySchedules() {
+  const setup = loadSetup();
+  const schedules = Array.isArray(setup.paySchedules) ? setup.paySchedules : [];
+  if (schedules.length === 0) {
+    return [{ name: 'Monthly', cadence: 'monthly' }];
+  }
+  return schedules;
+}
+
 function audit(actor, action, payload) {
   appendAuditEvent({ id: randomUUID(), actor, action, payload, timestamp: new Date().toISOString() });
 }
@@ -142,18 +151,51 @@ function handleApi(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/employees') {
     return parseBody(req)
       .then((body) => {
-        const name = (body.name || '').trim();
+        const firstName = (body.first_name || body.firstName || '').trim();
+        const middleName = (body.middle_name || body.middleName || '').trim();
+        const lastName = (body.last_name || body.lastName || '').trim();
+        const ssn = (body.ssn || '').trim();
+        const dob = (body.dob || '').trim();
+        const address = (body.address || '').trim();
+        const email = (body.email || '').trim();
+        const phone = (body.phone || body.cell_phone || '').trim();
+        const paySchedule = (body.pay_schedule || body.paySchedule || '').trim();
         const department = (body.department || '').trim();
         const providedId = (body.id || '').trim();
         const ptoBalance = Number(body.pto_balance_hours ?? body.pto ?? 0);
 
-        if (!name || !department) {
-          return sendJson(res, 400, { error: 'Name and department are required' });
+        const payScheduleNames = loadPaySchedules()
+          .map((schedule) => schedule.name)
+          .filter(Boolean);
+
+        if (!firstName || !lastName || !ssn || !dob || !address || !paySchedule) {
+          return sendJson(res, 400, { error: 'First name, last name, SSN, DOB, address, and pay schedule are required' });
+        }
+
+        if (!/^\d{3}-?\d{2}-?\d{4}$/.test(ssn)) {
+          return sendJson(res, 400, { error: 'SSN must match ###-##-####' });
+        }
+
+        if (Number.isNaN(Date.parse(dob))) {
+          return sendJson(res, 400, { error: 'Provide a valid date of birth' });
+        }
+
+        if (payScheduleNames.length && !payScheduleNames.map((n) => n.toLowerCase()).includes(paySchedule.toLowerCase())) {
+          return sendJson(res, 400, { error: 'Select a valid pay schedule' });
         }
 
         const employee = {
           id: providedId || randomUUID(),
-          name,
+          name: [firstName, middleName, lastName].filter(Boolean).join(' '),
+          first_name: firstName,
+          middle_name: middleName,
+          last_name: lastName,
+          ssn,
+          dob,
+          address,
+          email,
+          phone,
+          pay_schedule: paySchedule,
           department,
           pto_balance_hours: Number.isFinite(ptoBalance) ? ptoBalance : 0
         };
@@ -196,7 +238,11 @@ function handleApi(req, res) {
       einPattern: EIN_REGEX.toString(),
       states: STATES,
       cadenceOptions: ['weekly', 'biweekly', 'semimonthly', 'monthly'],
-      filingFrequencies: ['monthly', 'quarterly', 'annual']
+      filingFrequencies: ['monthly', 'quarterly', 'annual'],
+      paySchedules: loadPaySchedules().map((schedule) => ({
+        name: schedule.name,
+        cadence: schedule.cadence || 'monthly'
+      }))
     });
   }
 

@@ -58,7 +58,7 @@
             <div>
               <p class="muted" style="margin: 0;">Employee</p>
               <h1 id="employeeName">Loading...</h1>
-              <p id="employeeDepartment" class="muted" style="margin-top: 4px;">&nbsp;</p>
+              <p id="employeePaySchedule" class="muted" style="margin-top: 4px;">&nbsp;</p>
             </div>
             <div class="pill" id="employeeIdLabel">&nbsp;</div>
           </div>
@@ -81,12 +81,32 @@
                 <p id="profileName" style="margin: 0; font-weight: 600;"></p>
               </div>
               <div>
-                <p class="muted" style="margin-bottom: 4px;">Department</p>
-                <p id="profileDepartment" style="margin: 0;"></p>
+                <p class="muted" style="margin-bottom: 4px;">Pay schedule</p>
+                <p id="profilePaySchedule" style="margin: 0;"></p>
               </div>
               <div>
                 <p class="muted" style="margin-bottom: 4px;">Employee ID</p>
                 <p id="profileId" class="muted" style="margin: 0;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Date of birth</p>
+                <p id="profileDob" style="margin: 0;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">SSN</p>
+                <p id="profileSsn" style="margin: 0;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Email</p>
+                <p id="profileEmail" style="margin: 0;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Cell phone</p>
+                <p id="profilePhone" style="margin: 0;"></p>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <p class="muted" style="margin-bottom: 4px;">Address</p>
+                <p id="profileAddress" style="margin: 0;"></p>
               </div>
               <div>
                 <p class="muted" style="margin-bottom: 4px;">PTO balance</p>
@@ -119,12 +139,17 @@
       const profile = document.getElementById('profile');
 
       const employeeName = document.getElementById('employeeName');
-      const employeeDepartment = document.getElementById('employeeDepartment');
+      const employeePaySchedule = document.getElementById('employeePaySchedule');
       const employeeIdLabel = document.getElementById('employeeIdLabel');
 
       const profileName = document.getElementById('profileName');
-      const profileDepartment = document.getElementById('profileDepartment');
+      const profilePaySchedule = document.getElementById('profilePaySchedule');
       const profileId = document.getElementById('profileId');
+      const profileDob = document.getElementById('profileDob');
+      const profileSsn = document.getElementById('profileSsn');
+      const profileEmail = document.getElementById('profileEmail');
+      const profilePhone = document.getElementById('profilePhone');
+      const profileAddress = document.getElementById('profileAddress');
       const profilePto = document.getElementById('profilePto');
 
       if (!employeeId) {
@@ -146,7 +171,7 @@
             loadingState.style.display = 'none';
             notFoundState.style.display = 'block';
             employeeName.textContent = 'Employee not found';
-            employeeDepartment.textContent = '';
+            employeePaySchedule.textContent = '';
             employeeIdLabel.textContent = '';
             return;
           }
@@ -172,12 +197,17 @@
         profile.style.display = 'block';
 
         employeeName.textContent = employee.name || 'Employee';
-        employeeDepartment.textContent = employee.department || 'No department';
+        employeePaySchedule.textContent = employee.pay_schedule ? `Pay schedule: ${employee.pay_schedule}` : 'Pay schedule: Monthly';
         employeeIdLabel.textContent = employee.id ? `ID: ${employee.id}` : '';
 
         profileName.textContent = employee.name || '-';
-        profileDepartment.textContent = employee.department || '-';
+        profilePaySchedule.textContent = employee.pay_schedule || 'Monthly';
         profileId.textContent = employee.id || '-';
+        profileDob.textContent = employee.dob || '-';
+        profileSsn.textContent = employee.ssn || '-';
+        profileEmail.textContent = employee.email || '-';
+        profilePhone.textContent = employee.phone || '-';
+        profileAddress.textContent = employee.address || '-';
         profilePto.textContent = `${Number(employee.pto_balance_hours || 0).toFixed(1)}h`;
       }
     </script>
