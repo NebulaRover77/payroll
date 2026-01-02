@@ -29,12 +29,6 @@ const state = {
   users: [],
 };
 
-let API_OK = false;
-
-function persistIfOffline() {
-  if (!API_OK) saveState();
-}
-
 async function probeApi() {
   try {
     await api('/health');
@@ -58,127 +52,58 @@ async function probeApi() {
 
     if (!ok) throw new Error('employees endpoint not console-ready');
 
-    API_OK = true;
+    return true;
   } catch (e) {
-    console.warn('Backend not ready for console (falling back to demo mode).', e);
-    API_OK = false;
+    console.error('Backend not ready for console.', e);
+    throw e;
   }
 }
 
 async function loadStateFromApi() {
   // Each call is isolated so one missing endpoint doesn’t break everything.
   state.employees = await api('/employees').catch(() => []);
-  state.timeEntries = await api('/time').catch(() => []);
-  state.payrollRuns = await api('/payroll').catch(() => []);
+
+  const timeEntries = await api('/time').catch(() => []);
+  state.timeEntries = timeEntries
+    .map((entry) => ({
+      id: entry.id ?? crypto.randomUUID(),
+      employeeId: entry.employeeId ?? entry.employee_id ?? entry.employee ?? '',
+      date: entry.date ?? entry.work_date ?? entry.workDate ?? '',
+      hours: Number(entry.hours ?? entry.duration ?? 0),
+    }))
+    .filter((entry) => entry.employeeId);
+
+  const payrollRuns = await api('/payroll').catch(() => []);
+  state.payrollRuns = payrollRuns.map((run) => ({
+    id: run.id ?? crypto.randomUUID(),
+    start: run.start ?? run.period_start ?? run.start_date ?? '',
+    end: run.end ?? run.period_end ?? run.end_date ?? '',
+    status: run.status ?? 'processed',
+    headcount: run.headcount ?? run.entries?.length ?? 0,
+    netTotal: Number(run.netTotal ?? run.total_net ?? run.total_gross ?? 0),
+    entries: run.entries ?? [],
+  }));
+
   state.users = await api('/users').catch(() => []);
 }
 
-const storageKey = 'nebulaPayrollState';
-
 const $ = (id) => document.getElementById(id);
+
+const statusBanner = () => $('api-status');
+
+function setStatus(message, tone = 'info') {
+  const el = statusBanner();
+  if (!el) return;
+
+  el.textContent = message;
+  el.className = `api-status ${tone}`;
+}
 
 function localISODate(d = new Date()) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
-}
-
-function loadState() {
-  const saved = localStorage.getItem(storageKey);
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      state.employees = parsed.employees || [];
-      state.timeEntries = parsed.timeEntries || [];
-      state.payrollRuns = parsed.payrollRuns || [];
-      state.users = parsed.users || [];
-      return;
-    } catch (e) {
-      console.warn('Could not parse saved state', e);
-    }
-  }
-
-  seedData();
-}
-
-function saveState() {
-  localStorage.setItem(storageKey, JSON.stringify(state));
-}
-
-function seedData() {
-  state.employees = [
-    {
-      id: crypto.randomUUID(),
-      name: 'Alex Chen',
-      role: 'Payroll Analyst',
-      type: 'salary',
-      rate: 3600,
-      defaultHours: 80,
-      status: 'active',
-      tax: 'standard',
-    },
-    {
-      id: crypto.randomUUID(),
-      name: 'Priya Patel',
-      role: 'Support Lead',
-      type: 'hourly',
-      rate: 38,
-      defaultHours: 80,
-      status: 'active',
-      tax: 'low',
-    },
-    {
-      id: crypto.randomUUID(),
-      name: 'Marcos Diaz',
-      role: 'Implementation',
-      type: 'hourly',
-      rate: 42,
-      defaultHours: 60,
-      status: 'on_leave',
-      tax: 'standard',
-    },
-  ];
-
-  const today = new Date();
-  const dayMs = 86400000;
-
-  state.timeEntries = [
-    {
-      id: crypto.randomUUID(),
-      employeeId: state.employees[1].id,
-      date: new Date(today - dayMs * 2).toISOString().slice(0, 10),
-      hours: 8,
-    },
-    {
-      id: crypto.randomUUID(),
-      employeeId: state.employees[1].id,
-      date: new Date(today - dayMs * 3).toISOString().slice(0, 10),
-      hours: 7.5,
-    },
-    {
-      id: crypto.randomUUID(),
-      employeeId: state.employees[0].id,
-      date: new Date(today - dayMs * 4).toISOString().slice(0, 10),
-      hours: 8,
-    },
-  ];
-
-  state.payrollRuns = [];
-  state.users = [
-    {
-      id: crypto.randomUUID(),
-      email: 'admin@example.com',
-      role: 'admin',
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: crypto.randomUUID(),
-      email: 'payroll@example.com',
-      role: 'payroll',
-      created_at: new Date().toISOString(),
-    },
-  ];
 }
 
 function formatCurrency(value) {
@@ -347,7 +272,6 @@ function runPayroll({ start, end, notes }) {
   run.headcount = run.entries.length;
 
   state.payrollRuns.unshift(run);
-  saveState();
 
   renderPayroll();
   renderMetrics();
@@ -493,18 +417,8 @@ function attachHandlers() {
     };
 
     try {
-      if (API_OK) {
-        const created = await api('/users', { method: 'POST', body: payload });
-        state.users.unshift(created);
-      } else {
-        state.users.unshift({
-          id: crypto.randomUUID(),
-          email: payload.email,
-          role: payload.role,
-          created_at: new Date().toISOString(),
-        });
-        saveState();
-      }
+      const created = await api('/users', { method: 'POST', body: payload });
+      state.users.unshift(created);
 
       renderUsers();
       e.target.reset();
@@ -530,13 +444,8 @@ function attachHandlers() {
     };
 
     try {
-      if (API_OK) {
-        const created = await api('/employees', { method: 'POST', body: payload });
-        state.employees.unshift(created);
-      } else {
-        state.employees.unshift({ id: crypto.randomUUID(), ...payload });
-        saveState();
-      }
+      const created = await api('/employees', { method: 'POST', body: payload });
+      state.employees.unshift(created);
 
       renderEmployees($('employee-search').value);
       renderEmployeeOptions();
@@ -553,14 +462,10 @@ function attachHandlers() {
     if (!id) return;
 
     try {
-      if (API_OK) {
-        await api(`/employees/${id}`, { method: 'DELETE' });
-      }
+      await api(`/employees/${id}`, { method: 'DELETE' });
 
       state.employees = state.employees.filter((emp) => String(emp.id) !== String(id));
       state.timeEntries = state.timeEntries.filter((t) => String(t.employeeId) !== String(id));
-
-      if (!API_OK) saveState();
 
       renderEmployees($('employee-search').value);
       renderEmployeeOptions();
@@ -585,7 +490,6 @@ function attachHandlers() {
       hours: Number(form.get('hours')),
     });
 
-    saveState();
     renderTimeEntries($('time-range').value);
     renderMetrics();
     e.target.reset();
@@ -597,7 +501,6 @@ function attachHandlers() {
     if (!id) return;
 
     state.timeEntries = state.timeEntries.filter((entry) => entry.id !== id);
-    saveState();
     renderTimeEntries($('time-range').value);
     renderMetrics();
   });
@@ -623,7 +526,6 @@ function attachHandlers() {
 
     if (action === 'process') {
       run.status = 'processed';
-      saveState();
       renderPayroll($('payroll-filter').value);
       renderMetrics();
       renderReports();
@@ -662,12 +564,13 @@ function attachHandlers() {
 let HANDLERS_BOUND = false;
 
 async function init() {
-  await probeApi();
-
-  if (API_OK) {
+  try {
+    await probeApi();
     await loadStateFromApi();
-  } else {
-    loadState(); // your existing localStorage + seedData path
+    setStatus('Connected to payroll API', 'success');
+  } catch (e) {
+    setStatus('Cannot reach the payroll API. Please start the backend and reload.', 'error');
+    return;
   }
 
   renderEmployees();

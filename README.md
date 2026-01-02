@@ -13,47 +13,41 @@ A playground/monorepo for a payroll platform: a FastAPI backend, an Express-base
 
 ## Quickstart
 
-### 1) Backend API (FastAPI + Postgres + migrations)
-Runs the API, Postgres, and observability tooling via Docker Compose (uses `docker-compose.yml`).
+**One-liner (API + DB + OTEL + wizard + console):**
 
 ```bash
 docker compose up --build
 ```
 
-In another shell, run migrations:
+After the stack is up, run migrations in another shell:
 
 ```bash
 docker compose exec api alembic upgrade head
 ```
 
+### Backend API (FastAPI + Postgres + migrations)
+Runs the API, Postgres, and observability tooling via Docker Compose (uses `docker-compose.yml`).
+
 API is typically at:
-- http://localhost:8000  
+- http://localhost:8000
 Health check:
 - http://localhost:8000/health
 
 Notes:
 - Backup/restore helpers: `scripts/backup.sh` and `scripts/restore.sh` (use `PAYROLL_DATABASE_URL`).
 
----
-
-### 2) Payroll Setup Wizard (Express + static UI)
+### Payroll Setup Wizard (Express + static UI)
 Runs the multi-step setup wizard served from `public/`.
 
-```bash
-npm install
-npm run start
-```
-
-Via Docker Compose (builds `Dockerfile.wizard` and binds port 3000):
+The Docker Compose stack starts this service automatically (port `3000`). To run it in isolation or stream logs:
 
 ```bash
-docker compose up --build wizard
+docker compose up wizard
+# or
+docker compose logs -f wizard
 ```
 
-Wizard server:
-- http://localhost:3000
-
-Environment:
+Environment (configured via Compose):
 - `ADMIN_TOKEN` (optional): admin token for protected endpoints (default: `changeme`)
 - `PORT` (optional): server port (default: `3000`)
 
@@ -67,19 +61,8 @@ API highlights:
 
 Admin endpoints require `X-Admin-Token: <ADMIN_TOKEN>`.
 
-Run checks:
-```bash
-npm test
-```
-
----
-
-### 3) Static Console (Nginx container)
+### Static Console (Nginx container)
 A simple static UI served by Nginx (files live in `frontend/console/`).
-
-```bash
-docker compose -f compose.console.yaml up --build
-```
 
 Console:
 - http://localhost:8080
@@ -89,9 +72,8 @@ Console:
 ## Repo layout (high level)
 
 - `backend/` — FastAPI app code (routers, models, config, observability)
-- `docker-compose.yml` — backend compose stack (API + Postgres + OTEL tooling)
+- `docker-compose.yml` — compose stack for API, DB, observability, wizard, and console
 - `frontend/console/` — static console UI assets + Dockerfile
-- `compose.console.yaml` — compose file for the static console
 - `src/` + `public/` + `package.json` — Express setup wizard
 - `docs/` — security/architecture/feature design docs
 - `scripts/` — backup/restore + misc utilities
