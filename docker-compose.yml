@@ -30,6 +30,15 @@ services:
       - db
       - otel-collector
 
+  console:
+    build:
+      context: ./frontend/console
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
   db:
     image: postgres:15
     environment:

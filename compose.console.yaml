@@ -1,7 +1,0 @@
-services:
-  console:
-    build:
-      context: ./frontend/console
-      dockerfile: Dockerfile
-    ports:
-      - "8080:80"
