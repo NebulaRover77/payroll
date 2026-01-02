@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from app.core.logging import get_logger
 
@@ -9,5 +9,7 @@ logger = get_logger(__name__)
 @router.post("/login")
 def login(email: str, password: str) -> dict[str, str]:
     logger.info("login_attempt", email=email)
-    # Placeholder logic; integrate with identity provider later
-    return {"access_token": "demo-token", "token_type": "bearer"}
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Authentication is not configured.",
+    )

@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from typing import Iterator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
@@ -10,10 +11,22 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-@contextmanager
-def get_session() -> Session:
-    session = SessionLocal()
+def get_session() -> Iterator[Session]:
+    db = SessionLocal()
     try:
-        yield session
+        yield db
     finally:
-        session.close()
+        db.close()
+
+
+@contextmanager
+def session_scope() -> Iterator[Session]:
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()

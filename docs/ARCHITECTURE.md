@@ -21,7 +21,6 @@ Environment variables are namespaced with `PAYROLL_` and can be set in `.env.dev
 
 ## Data lifecycle
 - **Migrations:** run `alembic upgrade head` (env file controls the connection string).
-- **Seeds:** run a small bootstrap in `app/seed/seed_data.py` against a live database session.
 - **Backup/restore:** `scripts/backup.sh` and `scripts/restore.sh` wrap `pg_dump` / `psql` for DB snapshots.
 
 ## Observability & reliability

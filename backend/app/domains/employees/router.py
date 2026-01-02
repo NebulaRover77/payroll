@@ -1,9 +1,12 @@
 from datetime import date
 from typing import Literal
-from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.db.session import get_session
+from app.models.employee import Employee
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -24,59 +27,55 @@ class EmployeeCreate(EmployeeBase):
 
 
 class EmployeeOut(EmployeeBase):
-    id: str
-
-
-_EMPLOYEES: list[EmployeeOut] = [
-    EmployeeOut(
-        id=str(uuid4()),
-        name="Alex Chen",
-        role="Payroll Analyst",
-        type="salary",
-        rate=3600,
-        defaultHours=80,
-        status="active",
-        tax="standard",
-    ),
-    EmployeeOut(
-        id=str(uuid4()),
-        name="Priya Patel",
-        role="Support Lead",
-        type="hourly",
-        rate=38,
-        defaultHours=80,
-        status="active",
-        tax="low",
-    ),
-    EmployeeOut(
-        id=str(uuid4()),
-        name="Marcos Diaz",
-        role="Implementation",
-        type="hourly",
-        rate=42,
-        defaultHours=60,
-        status="on_leave",
-        tax="standard",
-    ),
-]
+    id: int
 
 
 @router.get("", response_model=list[EmployeeOut])
-def list_employees():
-    return _EMPLOYEES
+def list_employees(db: Session = Depends(get_session)):
+    rows = db.query(Employee).order_by(Employee.name.asc(), Employee.id.asc()).all()
+    return [
+        EmployeeOut(
+            id=r.id,
+            name=r.name,
+            role=r.role,
+            type=r.pay_type,
+            rate=float(r.rate or 0),
+            defaultHours=float(r.default_hours or 0),
+            status=r.status,
+            tax=r.tax,
+            hire_date=r.hire_date,
+        )
+        for r in rows
+    ]
 
 
 @router.post("", response_model=EmployeeOut, status_code=201)
-def create_employee(payload: EmployeeCreate):
-    emp = EmployeeOut(id=str(uuid4()), **payload.model_dump())
-    _EMPLOYEES.append(emp)
-    return emp
+def create_employee(payload: EmployeeCreate, db: Session = Depends(get_session)):
+    row = Employee(
+        name=payload.name.strip(),
+        role=payload.role,
+        pay_type=payload.type,
+        rate=payload.rate,
+        default_hours=payload.defaultHours,
+        status=payload.status,
+        tax=payload.tax,
+        hire_date=payload.hire_date,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    return EmployeeOut(
+        id=row.id,
+        **payload.model_dump(),
+    )
 
 
 @router.delete("/{employee_id}", status_code=204)
-def delete_employee(employee_id: str):
-    idx = next((i for i, e in enumerate(_EMPLOYEES) if e.id == employee_id), None)
-    if idx is None:
+def delete_employee(employee_id: int, db: Session = Depends(get_session)):
+    row = db.query(Employee).filter(Employee.id == employee_id).one_or_none()
+    if not row:
         raise HTTPException(status_code=404, detail="Employee not found")
-    _EMPLOYEES.pop(idx)
+    db.delete(row)
+    db.commit()
     return None
