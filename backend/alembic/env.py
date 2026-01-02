@@ -2,13 +2,14 @@ import os
 import sys
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
+
 sys.path.append(str(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))))
+from app import models  # noqa: E402,F401
 from app.core.config import settings  # noqa: E402
 from app.db.session import Base  # noqa: E402
-from app import models  # noqa: E402,F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

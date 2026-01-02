@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.models import Employee, PayrollRun, Payment, Report, TimeEntry, User
+from app.models import Employee, Payment, PayrollRun, Report, TimeEntry, User
 
 
 def seed(session: Session) -> None:

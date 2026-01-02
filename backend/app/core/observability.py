@@ -11,7 +11,6 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from .config import settings
 
-
 RESOURCE = Resource.create({"service.name": "payroll-api", "deployment.env": settings.env})
 
 
