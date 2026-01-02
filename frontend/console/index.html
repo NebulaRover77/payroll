@@ -3,293 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nebula Payroll | Operations Console</title>
+  <title>Nebula Payroll | Console Login</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo">NP</div>
-      <div>
-        <p class="eyebrow">Nebula Payroll</p>
-        <h1>Operations Console</h1>
-      </div>
-    </div>
-    <nav class="nav" aria-label="Primary">
-      <button class="nav-toggle" aria-expanded="false" aria-controls="nav-links">☰</button>
-      <ul id="nav-links" class="nav-links">
-        <li><a href="#dashboard">Dashboard</a></li>
-        <li><a href="#employees">Employees</a></li>
-        <li><a href="#time">Time</a></li>
-        <li><a href="#payroll">Payroll</a></li>
-        <li><a href="#reports">Reports</a></li>
-      </ul>
-    </nav>
-  </header>
+<body class="login-body">
+  <div class="glow glow-one"></div>
+  <div class="glow glow-two"></div>
 
-  <main>
-    <section id="dashboard" class="panel grid">
-      <div class="panel-header">
+  <main class="login-shell">
+    <section class="auth-card" aria-label="Login">
+      <header class="auth-header">
+        <div class="logo-mark" aria-hidden="true">NP</div>
         <div>
-          <p class="eyebrow">Live status</p>
-          <h2>Control center</h2>
-          <p class="muted">Track headcount, hours, and the latest payroll runs in one place.</p>
+          <p class="eyebrow">Nebula Payroll</p>
+          <h1>Sign in to the console</h1>
+          <p class="muted">Access payroll, time, and people tools in one place.</p>
         </div>
-        <div class="quick-actions">
-          <button class="btn primary" id="quick-run">Run payroll</button>
-          <button class="btn ghost" id="quick-add">Add employee</button>
-        </div>
-      </div>
-      <div class="metrics">
-        <article class="metric-card">
-          <p class="label">Employees</p>
-          <h3 id="metric-employees">0</h3>
-          <p class="muted">Active team members</p>
-        </article>
-        <article class="metric-card">
-          <p class="label">Pending hours</p>
-          <h3 id="metric-hours">0</h3>
-          <p class="muted">Awaiting approval</p>
-        </article>
-        <article class="metric-card">
-          <p class="label">Last payroll</p>
-          <h3 id="metric-last">—</h3>
-          <p class="muted">Net paid in last run</p>
-        </article>
-        <article class="metric-card">
-          <p class="label">In review</p>
-          <h3 id="metric-drafts">0</h3>
-          <p class="muted">Upcoming runs</p>
-        </article>
-      </div>
-    </section>
+      </header>
 
-    <section id="employees" class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">People</p>
-          <h2>Employees</h2>
-          <p class="muted">Add teammates and define how they should be paid.</p>
-        </div>
-        <div class="pill">W-2 & 1099 supported</div>
-      </div>
-      <div class="split">
-        <form id="employee-form" class="form-card">
-          <div class="form-row">
-            <label for="emp-name">Full name</label>
-            <input id="emp-name" name="name" required placeholder="Alex Chen" />
-          </div>
-          <div class="form-row">
-            <label for="emp-role">Role/Title</label>
-            <input id="emp-role" name="role" placeholder="Payroll Analyst" />
-          </div>
-          <div class="form-grid">
-            <div class="form-row">
-              <label for="emp-type">Pay type</label>
-              <select id="emp-type" name="type">
-                <option value="hourly">Hourly</option>
-                <option value="salary">Salary</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label for="emp-rate">Rate</label>
-              <input id="emp-rate" name="rate" type="number" step="0.01" min="0" required placeholder="35.00" />
-              <small class="muted">Hourly rate or salary per pay period</small>
-            </div>
-            <div class="form-row">
-              <label for="emp-default-hours">Target hours</label>
-              <input id="emp-default-hours" name="defaultHours" type="number" step="0.1" min="0" placeholder="80" />
-              <small class="muted">Expected hours each pay cycle</small>
-            </div>
-          </div>
-          <div class="form-row inline">
-            <label for="emp-status">Status</label>
-            <select id="emp-status" name="status">
-              <option value="active">Active</option>
-              <option value="on_leave">On leave</option>
-            </select>
-            <label for="emp-tax">Tax profile</label>
-            <select id="emp-tax" name="tax">
-              <option value="standard">Standard</option>
-              <option value="high">Aggressive withholding</option>
-              <option value="low">Reduced withholding</option>
-            </select>
-          </div>
-          <button class="btn primary" type="submit">Save employee</button>
-        </form>
-        <div class="table-card">
-          <div class="table-head">
-            <p>Roster</p>
-            <input id="employee-search" type="search" placeholder="Search by name" />
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Role</th>
-                  <th>Pay</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="employee-table"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
+      <form class="auth-form" aria-label="Login form">
+        <label for="username">Username</label>
+        <input id="username" name="username" autocomplete="username" required>
 
-    <section id="time" class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Hours</p>
-          <h2>Time tracking</h2>
-          <p class="muted">Capture hours to feed each payroll run.</p>
-        </div>
-        <div class="pill">Timesheets auto-roll into payroll</div>
-      </div>
-      <div class="split">
-        <form id="time-form" class="form-card">
-          <div class="form-grid">
-            <div class="form-row">
-              <label for="time-employee">Employee</label>
-              <select id="time-employee" name="employee" required></select>
-            </div>
-            <div class="form-row">
-              <label for="time-date">Work date</label>
-              <input id="time-date" name="date" type="date" required />
-            </div>
-            <div class="form-row">
-              <label for="time-hours">Hours</label>
-              <input id="time-hours" name="hours" type="number" step="0.1" min="0" required placeholder="8" />
-            </div>
-          </div>
-          <button class="btn primary" type="submit">Log hours</button>
-        </form>
-        <div class="table-card">
-          <div class="table-head">
-            <p>Recent entries</p>
-            <div class="filter">
-              <label for="time-range">Range</label>
-              <select id="time-range">
-                <option value="7">7d</option>
-                <option value="14">14d</option>
-                <option value="30">30d</option>
-                <option value="all">All</option>
-              </select>
-            </div>
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Date</th>
-                  <th>Hours</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="time-table"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
 
-    <section id="payroll" class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Pay runs</p>
-          <h2>Payroll</h2>
-          <p class="muted">Review accrued hours, calculate tax, and release payments.</p>
-        </div>
-        <div class="pill">Exports & audit trail enabled</div>
-      </div>
-      <div class="split">
-        <form id="payroll-form" class="form-card">
-          <div class="form-grid">
-            <div class="form-row">
-              <label for="period-start">Period start</label>
-              <input id="period-start" name="start" type="date" required />
-            </div>
-            <div class="form-row">
-              <label for="period-end">Period end</label>
-              <input id="period-end" name="end" type="date" required />
-            </div>
-            <div class="form-row">
-              <label for="payroll-notes">Notes</label>
-              <input id="payroll-notes" name="notes" placeholder="Bi-weekly run" />
-            </div>
-          </div>
-          <button class="btn primary" type="submit">Generate payroll</button>
-          <p class="muted small">Uses logged time entries within the period. Salary staff use their rate per period.</p>
-        </form>
-        <div class="table-card">
-          <div class="table-head">
-            <p>Recent runs</p>
-            <div class="filter">
-              <label for="payroll-filter">Show</label>
-              <select id="payroll-filter">
-                <option value="all">All</option>
-                <option value="draft">Draft</option>
-                <option value="processed">Processed</option>
-              </select>
-            </div>
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Period</th>
-                  <th>Status</th>
-                  <th>Employees</th>
-                  <th>Net pay</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="payroll-table"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div id="payroll-preview" class="preview-card" aria-live="polite"></div>
-    </section>
+        <button type="submit" class="btn primary">Sign in</button>
 
-    <section id="reports" class="panel">
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Insights</p>
-          <h2>Reports</h2>
-          <p class="muted">Track labor distribution and run-level audit history.</p>
+        <div class="forgot-links">
+          <a class="link" href="#forgot-username">Forgot username?</a>
+          <a class="link" href="#forgot-password">Forgot password?</a>
         </div>
-        <div class="pill">CSV export ready</div>
-      </div>
-      <div class="grid reports">
-        <article class="report-card">
-          <h3>Labor mix</h3>
-          <p class="muted">Breakdown of hourly vs salary compensation across the latest run.</p>
-          <ul id="labor-mix" class="pill-list"></ul>
-        </article>
-        <article class="report-card">
-          <h3>Audit trail</h3>
-          <p class="muted">Stamped history of payroll runs with deductions and notes.</p>
-          <div id="audit-log" class="audit-log"></div>
-        </article>
-        <article class="report-card">
-          <h3>Net pay trend</h3>
-          <p class="muted">Snapshot of the last five payrolls.</p>
-          <ul id="net-trend" class="pill-list"></ul>
-        </article>
-      </div>
+      </form>
+
+      <p class="muted small">Return to the <a class="link" href="../index.html">splash page</a>.</p>
     </section>
   </main>
-
-  <footer class="footer">
-    <p>Built for payroll teams that need clarity, auditability, and speed.</p>
-    <div class="pill">Nebula Payroll · Secure by default</div>
-  </footer>
-
-  <script src="script.js"></script>
 </body>
 </html>
