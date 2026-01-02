@@ -13,7 +13,9 @@ const { loadSetup, saveSetup, appendAuditEvent, loadAuditLog } = require('./stor
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'changeme';
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
-const DATA_STORE_PATH = path.join(__dirname, '..', 'data', 'store.json');
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const DATA_STORE_PATH = path.join(DATA_DIR, 'store.json');
+const defaultStore = { employees: [], pay_periods: [], time_entries: [], pto_requests: [] };
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -63,10 +65,34 @@ function parseBody(req) {
   });
 }
 
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+function readStore() {
+  ensureDataDir();
+  if (!fs.existsSync(DATA_STORE_PATH)) {
+    return { ...defaultStore };
+  }
+  try {
+    const content = fs.readFileSync(DATA_STORE_PATH, 'utf-8');
+    const parsed = JSON.parse(content || '{}');
+    return { ...defaultStore, ...parsed, employees: parsed.employees || [] };
+  } catch (error) {
+    console.error('Unable to read data store', error);
+    return { ...defaultStore };
+  }
+}
+
+function saveStore(store) {
+  ensureDataDir();
+  fs.writeFileSync(DATA_STORE_PATH, JSON.stringify(store, null, 2));
+}
+
 function loadEmployees() {
-  if (!fs.existsSync(DATA_STORE_PATH)) return [];
-  const content = fs.readFileSync(DATA_STORE_PATH, 'utf-8');
-  const parsed = JSON.parse(content || '{}');
+  const parsed = readStore();
   const employees = Array.isArray(parsed.employees) ? parsed.employees : [];
   return employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
 }
@@ -111,6 +137,41 @@ function handleApi(req, res) {
       console.error('Failed to load employees', error);
       return sendJson(res, 500, { error: 'Unable to load employees' });
     }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/employees') {
+    return parseBody(req)
+      .then((body) => {
+        const name = (body.name || '').trim();
+        const department = (body.department || '').trim();
+        const providedId = (body.id || '').trim();
+        const ptoBalance = Number(body.pto_balance_hours ?? body.pto ?? 0);
+
+        if (!name || !department) {
+          return sendJson(res, 400, { error: 'Name and department are required' });
+        }
+
+        const employee = {
+          id: providedId || randomUUID(),
+          name,
+          department,
+          pto_balance_hours: Number.isFinite(ptoBalance) ? ptoBalance : 0
+        };
+
+        const store = readStore();
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+        const existingIndex = employees.findIndex((item) => item.id === employee.id);
+        if (existingIndex >= 0) {
+          employees[existingIndex] = employee;
+        } else {
+          employees.push(employee);
+        }
+
+        saveStore({ ...store, employees });
+        audit('user', 'employee.add', { id: employee.id, name: employee.name });
+        return sendJson(res, 201, { employee });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
   }
 
   if (req.method === 'GET' && url.pathname.startsWith('/api/employees/')) {
