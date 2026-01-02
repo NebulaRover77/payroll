@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="app-header">
+      <div class="app-header__brand">Nebula Payroll</div>
+      <div class="app-header__actions">
+        <button id="logoutBtn" class="btn ghost small">Log Out</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Primary">
+        <div class="nav-group">
+          <div class="nav-label">Main</div>
+          <a class="nav-link active" href="#">Dashboard</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Payroll</div>
+          <a class="nav-link" href="#">Run a New Payroll</a>
+          <a class="nav-link" href="#">Run ATF Payroll</a>
+          <a class="nav-link" href="#">Print Payroll</a>
+          <a class="nav-link" href="#">Void Payroll</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Employees</div>
+          <a class="nav-link" href="#">List Employees</a>
+          <a class="nav-link" href="#">Add Employee</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Time Tracking</div>
+          <a class="nav-link" href="#">Timesheets</a>
+          <a class="nav-link" href="#">Approvals</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Reports</div>
+          <a class="nav-link" href="#">View Reports</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Settings</div>
+          <a class="nav-link" href="#">Company Settings</a>
+        </div>
+      </nav>
+
+      <main class="workspace">
+        <section class="workspace__heading">
+          <h1>Welcome back</h1>
+          <p class="lead">Your tools are organized on the left so you can jump straight into payroll.</p>
+        </section>
+
+        <section class="workspace__grid">
+          <article class="panel">
+            <h2>Quick actions</h2>
+            <ul class="action-list">
+              <li>Run a new payroll for this pay period.</li>
+              <li>Enter after-the-fact (ATF) payrolls when checks already went out.</li>
+              <li>Print or void recent payroll runs.</li>
+            </ul>
+          </article>
+
+          <article class="panel">
+            <h2>Employees</h2>
+            <ul class="action-list">
+              <li>Review existing employees before the next run.</li>
+              <li>Add a new hire so their hours can be tracked.</li>
+            </ul>
+          </article>
+
+          <article class="panel">
+            <h2>Reports & Settings</h2>
+            <ul class="action-list">
+              <li>View payroll, tax, and deduction reports.</li>
+              <li>Update company or payroll settings anytime.</li>
+            </ul>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('payrollAuthToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      const logoutBtn = document.getElementById('logoutBtn');
+      logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('payrollAuthToken');
+        window.location.href = '/';
+      });
+    </script>
+  </body>
+</html>
