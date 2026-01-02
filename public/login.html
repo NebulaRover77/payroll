@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="topbar">
+      <div class="container topbar-content">
+        <a class="brand" href="/">Nebula Payroll</a>
+        <a class="link" href="/">Back to home</a>
+      </div>
+    </header>
+
+    <main class="container narrow">
+      <section class="card">
+        <h1>Log in</h1>
+        <p class="lead">Access your payroll console with your username and password.</p>
+        <form class="form" aria-label="Login form">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" required />
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+          <div class="link-row">
+            <a class="link" href="#">Forgot username?</a>
+            <a class="link" href="#">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="btn primary full-width">Sign in</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

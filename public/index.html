@@ -3,106 +3,44 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Payroll Company Setup</title>
+    <title>Nebula Payroll</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header>
-      <div class="container">
-        <h1>Payroll Company Setup Wizard</h1>
-        <p class="small">Complete each step to unlock payroll functions.</p>
+    <header class="hero">
+      <div class="top-nav">
+        <div class="brand">Nebula Payroll</div>
+        <a class="link" href="/login.html">Log in</a>
+      </div>
+      <div class="container hero-content">
+        <p class="eyebrow">Payroll without the clutter</p>
+        <h1>Welcome to Nebula Payroll</h1>
+        <p class="lead">
+          Run payroll confidently with a streamlined experience built for growing teams.
+          Get started in minutes and come back anytime to finish setup.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="/login.html">Go to login</a>
+          <a class="btn ghost" href="#learn-more">Learn more</a>
+        </div>
       </div>
     </header>
+
     <main class="container">
-      <div class="card">
-        <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <div>
-            <div class="badge" id="status-badge">Checking status…</div>
-            <p class="small" id="status-copy"></p>
-          </div>
-          <div>
-            <label for="adminToken">Admin token (required to save)</label>
-            <input id="adminToken" type="password" placeholder="changeme" />
-          </div>
-        </div>
-
-        <div class="stepper" id="stepper">
-          <div class="step" data-step="company">1. Company</div>
-          <div class="step" data-step="addresses">2. Addresses</div>
-          <div class="step" data-step="tax">3. Tax Accounts</div>
-          <div class="step" data-step="paySchedules">4. Pay Schedules</div>
-        </div>
-
-        <div id="messages"></div>
-
-        <section id="company" class="wizard-step">
-          <h2>Company profile</h2>
-          <div class="form-grid">
-            <div>
-              <label>Legal name</label>
-              <input id="legalName" />
-              <div class="error" data-error="legalName"></div>
-            </div>
-            <div>
-              <label>Employer Identification Number (EIN)</label>
-              <input id="ein" placeholder="12-3456789" />
-              <div class="error" data-error="ein"></div>
-            </div>
-          </div>
-          <h3>Primary contact</h3>
-          <div class="form-grid">
-            <div>
-              <label>Contact name</label>
-              <input id="contactName" />
-              <div class="error" data-error="contactName"></div>
-            </div>
-            <div>
-              <label>Contact email</label>
-              <input id="contactEmail" type="email" />
-              <div class="error" data-error="contactEmail"></div>
-            </div>
-            <div>
-              <label>Contact phone</label>
-              <input id="contactPhone" />
-              <div class="error" data-error="contactPhone"></div>
-            </div>
-          </div>
-        </section>
-
-        <section id="addresses" class="wizard-step" hidden>
-          <div class="flex" style="align-items: baseline; justify-content: space-between;">
-            <h2>Addresses</h2>
-            <button type="button" id="addAddress">Add address</button>
-          </div>
-          <div id="addressList"></div>
-          <div class="notice small">Include at least one legal or mailing address.</div>
-        </section>
-
-        <section id="tax" class="wizard-step" hidden>
-          <div class="flex" style="align-items: baseline; justify-content: space-between;">
-            <h2>Tax accounts</h2>
-            <button type="button" id="addTax">Add tax account</button>
-          </div>
-          <div id="taxList"></div>
-        </section>
-
-        <section id="paySchedules" class="wizard-step" hidden>
-          <div class="flex" style="align-items: baseline; justify-content: space-between;">
-            <h2>Pay schedules</h2>
-            <button type="button" id="addSchedule">Add pay schedule</button>
-          </div>
-          <div id="scheduleList"></div>
-        </section>
-
-        <div class="button-row">
-          <button type="button" class="secondary" id="backBtn">Back</button>
-          <div class="flex" style="align-items: center; gap: 0.5rem;">
-            <button type="button" class="secondary" id="saveDraft">Save draft</button>
-            <button type="button" id="nextBtn">Next</button>
-          </div>
-        </div>
-      </div>
+      <section id="learn-more" class="feature-grid">
+        <article class="feature-card">
+          <h2>Clear guidance</h2>
+          <p>Follow a simple checklist to keep company information, taxes, and schedules on track.</p>
+        </article>
+        <article class="feature-card">
+          <h2>Secure access</h2>
+          <p>Team members can sign in securely with unique usernames and passwords.</p>
+        </article>
+        <article class="feature-card">
+          <h2>Always available</h2>
+          <p>Log in from any device to continue setup, view payroll runs, or manage employees.</p>
+        </article>
+      </section>
     </main>
-    <script type="module" src="/app.js"></script>
   </body>
 </html>
