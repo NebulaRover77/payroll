@@ -17,10 +17,10 @@
     <main class="container narrow">
       <section class="card">
         <h1>Log in</h1>
-        <p class="lead">Access your payroll console with your username and password.</p>
-        <form class="form" aria-label="Login form">
-          <label for="username">Username</label>
-          <input id="username" name="username" type="text" autocomplete="username" required />
+        <p class="lead">Access your payroll console with your email and password.</p>
+        <form class="form" aria-label="Login form" id="loginForm" novalidate>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="username" required />
 
           <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" required />
@@ -30,9 +30,53 @@
             <a class="link" href="#">Forgot password?</a>
           </div>
 
+          <div class="error" id="message" role="alert" aria-live="polite"></div>
+
           <button type="submit" class="btn primary full-width">Sign in</button>
         </form>
       </section>
     </main>
+    <script>
+      const form = document.getElementById('loginForm');
+      const messageEl = document.getElementById('message');
+
+      function showMessage(kind, text) {
+        messageEl.textContent = text;
+        messageEl.className = kind === 'error' ? 'error' : 'success';
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        showMessage('', '');
+
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        if (!email || !password) {
+          showMessage('error', 'Email and password are required.');
+          return;
+        }
+
+        try {
+          const response = await fetch('http://localhost:8000/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            showMessage('error', data.detail || 'Login failed. Check your credentials.');
+            return;
+          }
+
+          localStorage.setItem('payrollAuthToken', data.access_token);
+          showMessage('success', 'Login successful. Token stored for subsequent requests.');
+        } catch (error) {
+          showMessage('error', 'Unable to reach the API. Is it running on port 8000?');
+        }
+      });
+    </script>
   </body>
 </html>

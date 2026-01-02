@@ -25,6 +25,17 @@ After the stack is up, run migrations in another shell:
 docker compose exec api alembic upgrade head
 ```
 
+### Seed an initial admin login
+Create the first username/password after migrations so you can authenticate against the API:
+
+```bash
+curl -X POST http://localhost:8000/users \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.test","password":"supersafepassword","role":"admin"}'
+```
+
+The `/users` endpoint stores the password using a built-in hash and enforces a minimum length of 8 characters; the example above seeds an `admin`-role account you can reuse for initial access.
+
 ### Backend API (FastAPI + Postgres + migrations)
 Runs the API, Postgres, and observability tooling via Docker Compose (uses `docker-compose.yml`).
 
