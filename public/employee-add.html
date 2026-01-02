@@ -59,16 +59,44 @@
         </section>
 
         <section class="panel">
-          <h2>What you'll need</h2>
-          <ul class="action-list">
-            <li>Full legal name and department assignment.</li>
-            <li>Pay type and rate for the next <a class="nav-link" href="/payroll-new.html">payroll run</a>.</li>
-            <li>PTO balance and eligibility for <a class="nav-link" href="/timesheets.html">timesheets</a>.</li>
-          </ul>
-          <div class="actions" style="margin-top: 16px;">
-            <a class="btn primary" href="/employees.html">Go to employee roster</a>
-            <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
+          <div class="flex" style="justify-content: space-between; align-items: center; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">New hire details</h2>
+              <p class="muted" style="margin: 0;">Fill in the required fields and we'll add them to the roster.</p>
+            </div>
+            <a class="btn ghost small" href="/employees.html">Back to roster</a>
           </div>
+
+          <form id="employeeForm" class="form-grid" style="margin-top: 20px;">
+            <div>
+              <label for="name">Full name</label>
+              <input id="name" name="name" required placeholder="Alex Rivera" />
+              <div class="error" data-error="name"></div>
+            </div>
+            <div>
+              <label for="department">Department</label>
+              <input id="department" name="department" required placeholder="Engineering" />
+              <div class="error" data-error="department"></div>
+            </div>
+            <div>
+              <label for="employeeId">Employee ID (optional)</label>
+              <input id="employeeId" name="employeeId" placeholder="emp-123" />
+              <p class="muted" style="margin-top: 4px;">Leave blank to auto-generate an ID.</p>
+            </div>
+            <div>
+              <label for="ptoBalance">Starting PTO balance (hours)</label>
+              <input id="ptoBalance" name="ptoBalance" type="number" step="0.1" min="0" value="0" />
+              <div class="error" data-error="ptoBalance"></div>
+            </div>
+            <div style="grid-column: 1 / -1;" class="muted">
+              We'll also log this event so your audit log reflects new hires.
+            </div>
+
+            <div style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
+              <button class="btn primary" type="submit" id="submitBtn">Save employee</button>
+              <div id="formStatus" class="muted" role="status"></div>
+            </div>
+          </form>
         </section>
       </main>
     </div>
@@ -83,6 +111,75 @@
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });
+
+      const form = document.getElementById('employeeForm');
+      const statusEl = document.getElementById('formStatus');
+      const submitBtn = document.getElementById('submitBtn');
+
+      function setStatus(message, isError = false) {
+        statusEl.textContent = message;
+        statusEl.className = isError ? 'notice' : 'muted';
+      }
+
+      function setFieldError(field, message) {
+        const errorEl = document.querySelector(`[data-error="${field}"]`);
+        if (errorEl) {
+          errorEl.textContent = message || '';
+        }
+      }
+
+      async function submitEmployee(event) {
+        event.preventDefault();
+        setStatus('Saving new employee...');
+        setFieldError('name');
+        setFieldError('department');
+        setFieldError('ptoBalance');
+        submitBtn.disabled = true;
+
+        const payload = {
+          name: document.getElementById('name').value.trim(),
+          department: document.getElementById('department').value.trim(),
+          id: document.getElementById('employeeId').value.trim(),
+          pto_balance_hours: Number(document.getElementById('ptoBalance').value || 0)
+        };
+
+        try {
+          const response = await fetch('/api/employees', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const result = await response.json();
+          if (!response.ok) {
+            if (response.status === 400 && result?.error) {
+              setStatus(result.error, true);
+              if (result.error.toLowerCase().includes('name')) {
+                setFieldError('name', 'Name is required');
+              }
+              if (result.error.toLowerCase().includes('department')) {
+                setFieldError('department', 'Department is required');
+              }
+            } else {
+              setStatus('Unable to save employee right now.', true);
+            }
+            return;
+          }
+
+          const employee = result.employee;
+          setStatus('Employee saved! Redirecting to profile...');
+          setTimeout(() => {
+            window.location.href = `/employee.html?id=${encodeURIComponent(employee.id)}`;
+          }, 600);
+        } catch (error) {
+          console.error('Failed to save employee', error);
+          setStatus('Network error. Please try again.', true);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      }
+
+      form.addEventListener('submit', submitEmployee);
     </script>
   </body>
 </html>
