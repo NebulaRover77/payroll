@@ -15,7 +15,12 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DATA_STORE_PATH = path.join(DATA_DIR, 'store.json');
-const defaultStore = { employees: [], pay_periods: [], time_entries: [], pto_requests: [] };
+const DEFAULT_PAY_TYPES = [
+  { id: 'regular', name: 'Regular' },
+  { id: 'vacation', name: 'Vacation' },
+  { id: 'holiday', name: 'Holiday' }
+];
+const defaultStore = { employees: [], pay_periods: [], time_entries: [], pto_requests: [], pay_types: DEFAULT_PAY_TYPES };
 const ZIP_REGEX = /^\d{5}(-\d{4})?$/;
 const PAY_CADENCE_OPTIONS = ['weekly', 'biweekly', 'semimonthly', 'monthly'];
 const EMPLOYMENT_STATUSES = ['Active', 'On Leave', 'Terminated'];
@@ -94,10 +99,29 @@ function saveStore(store) {
   fs.writeFileSync(DATA_STORE_PATH, JSON.stringify(store, null, 2));
 }
 
+function getPayTypes(store) {
+  const payTypes = Array.isArray(store.pay_types) && store.pay_types.length ? store.pay_types : DEFAULT_PAY_TYPES;
+  return payTypes.map((type) => ({ id: type.id, name: type.name }));
+}
+
+function ensurePayTypeFlags(current, payTypes) {
+  const enabled = {};
+  payTypes.forEach((type) => {
+    enabled[type.id] = current?.[type.id] ?? true;
+  });
+  return enabled;
+}
+
 function loadEmployees() {
   const parsed = readStore();
+  const payTypes = getPayTypes(parsed);
   const employees = Array.isArray(parsed.employees) ? parsed.employees : [];
-  return employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+  return employees
+    .map((employee) => ({
+      ...employee,
+      pay_types_enabled: ensurePayTypeFlags(employee.pay_types_enabled, payTypes)
+    }))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
 }
 
 function loadEmployeeById(employeeId) {
@@ -175,6 +199,11 @@ function handleApi(req, res) {
         const status = statusInput
           ? EMPLOYMENT_STATUSES.find((item) => item.toLowerCase() === statusInput.toLowerCase())
           : 'Active';
+        const payRateTypeRaw = (body.pay_rate_type || body.payRateType || '').trim();
+        const payRateType = payRateTypeRaw.toLowerCase() === 'period' ? 'period' : payRateTypeRaw.toLowerCase() === 'hourly' ? 'hourly' : '';
+        const payRateValue = body.pay_rate ?? body.payRate;
+        const parsedPayRate = Number(payRateValue);
+        const payTypeRaw = (body.pay_type || body.payType || '').trim();
 
         const addressParts = [
           addressLine1,
@@ -216,6 +245,12 @@ function handleApi(req, res) {
           return sendJson(res, 400, { error: 'Select a valid status' });
         }
 
+        const store = readStore();
+        const payTypes = getPayTypes(store);
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+        const existingIndex = employees.findIndex((item) => item.id === (providedId || body.id || ''));
+        const existingEmployee = existingIndex >= 0 ? employees[existingIndex] : null;
+
         const employee = {
           id: providedId || randomUUID(),
           name: [firstName, middleName, lastName].filter(Boolean).join(' '),
@@ -236,14 +271,18 @@ function handleApi(req, res) {
           pay_schedule: paySchedule,
           status,
           department,
-          pto_balance_hours: Number.isFinite(ptoBalance) ? ptoBalance : 0
+          pto_balance_hours: Number.isFinite(ptoBalance) ? ptoBalance : 0,
+          pay_rate_type: payRateType || existingEmployee?.pay_rate_type || '',
+          pay_rate: Number.isFinite(parsedPayRate) ? parsedPayRate : existingEmployee?.pay_rate || 0,
+          pay_type: payTypeRaw || existingEmployee?.pay_type || '',
+          pay_types_enabled: ensurePayTypeFlags(body.pay_types_enabled || body.payTypesEnabled || existingEmployee?.pay_types_enabled, payTypes),
+          w4: existingEmployee?.w4 || null,
+          tax_exemptions: existingEmployee?.tax_exemptions || null
         };
 
-        const store = readStore();
-        const employees = Array.isArray(store.employees) ? store.employees : [];
-        const existingIndex = employees.findIndex((item) => item.id === employee.id);
-        if (existingIndex >= 0) {
-          employees[existingIndex] = employee;
+        const index = employees.findIndex((item) => item.id === employee.id);
+        if (index >= 0) {
+          employees[index] = employee;
         } else {
           employees.push(employee);
         }
@@ -283,6 +322,238 @@ function handleApi(req, res) {
         cadence: schedule.cadence || 'monthly'
       }))
     });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/pay-types') {
+    const store = readStore();
+    return sendJson(res, 200, { payTypes: getPayTypes(store) });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/pay-types/assignments') {
+    return parseBody(req)
+      .then((body) => {
+        const assignments = Array.isArray(body.assignments) ? body.assignments : [];
+        if (!assignments.length) {
+          return sendJson(res, 400, { error: 'Provide at least one assignment update' });
+        }
+        const store = readStore();
+        const payTypes = getPayTypes(store);
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+
+        assignments.forEach((assignment) => {
+          const employeeId = (assignment.employeeId || '').trim();
+          const employee = employees.find((item) => item.id === employeeId);
+          if (!employee) return;
+          employee.pay_types_enabled = ensurePayTypeFlags(assignment.enabled, payTypes);
+        });
+
+        saveStore({ ...store, employees });
+        return sendJson(res, 200, { employees: loadEmployees() });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'POST' && url.pathname.endsWith('/w4') && url.pathname.startsWith('/api/employees/')) {
+    return parseBody(req)
+      .then((body) => {
+        const employeeId = decodeURIComponent(url.pathname.replace('/api/employees/', '').replace('/w4', ''));
+        if (!employeeId) {
+          return sendJson(res, 400, { error: 'Employee ID is required' });
+        }
+
+        const store = readStore();
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) {
+          return sendJson(res, 404, { error: 'Employee not found' });
+        }
+
+        employee.w4 = {
+          effective_date: body.effective_date || '',
+          filing_status: body.filing_status || '',
+          tax_exempt: Boolean(body.tax_exempt),
+          box2c_checked: Boolean(body.box2c_checked),
+          step3: Number(body.step3 || 0),
+          step4a: Number(body.step4a || 0),
+          step4b: Number(body.step4b || 0),
+          step4c: Number(body.step4c || 0),
+          document_name: body.document_name || '',
+          document_data: body.document_data || ''
+        };
+
+        saveStore({ ...store, employees });
+        audit('user', 'employee.w4', { employeeId });
+        return sendJson(res, 200, { employee });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'POST' && url.pathname.endsWith('/tax-exemptions') && url.pathname.startsWith('/api/employees/')) {
+    return parseBody(req)
+      .then((body) => {
+        const employeeId = decodeURIComponent(url.pathname.replace('/api/employees/', '').replace('/tax-exemptions', ''));
+        if (!employeeId) {
+          return sendJson(res, 400, { error: 'Employee ID is required' });
+        }
+
+        const store = readStore();
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) {
+          return sendJson(res, 404, { error: 'Employee not found' });
+        }
+
+        employee.tax_exemptions = {
+          fica_exempt: Boolean(body.fica_exempt),
+          fica_end_date: body.fica_end_date || '',
+          ss_only_exempt: Boolean(body.ss_only_exempt),
+          ss_only_end_date: body.ss_only_end_date || '',
+          suta_exempt: Boolean(body.suta_exempt),
+          suta_end_date: body.suta_end_date || '',
+          futa_exempt: Boolean(body.futa_exempt),
+          futa_end_date: body.futa_end_date || '',
+          futa_reason: body.futa_reason || ''
+        };
+
+        saveStore({ ...store, employees });
+        audit('user', 'employee.taxExemptions', { employeeId });
+        return sendJson(res, 200, { employee });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/time-entries') {
+    const store = readStore();
+    const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+    const startDate = url.searchParams.get('start_date');
+    const endDate = url.searchParams.get('end_date');
+    const status = url.searchParams.get('status');
+    const unpaid = url.searchParams.get('unpaid') === 'true';
+    const filtered = entries.filter((entry) => {
+      if (startDate && entry.start_date !== startDate) return false;
+      if (endDate && entry.end_date !== endDate) return false;
+      if (status && entry.status !== status) return false;
+      if (unpaid && entry.status === 'paid') return false;
+      return true;
+    });
+    return sendJson(res, 200, { entries: filtered });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/time-entries') {
+    return parseBody(req)
+      .then((body) => {
+        const startDate = (body.start_date || '').trim();
+        const endDate = (body.end_date || '').trim();
+        const entriesPayload = Array.isArray(body.entries) ? body.entries : [];
+        if (!startDate || !endDate) {
+          return sendJson(res, 400, { error: 'Start and end dates are required' });
+        }
+        if (!entriesPayload.length) {
+          return sendJson(res, 400, { error: 'Provide at least one entry' });
+        }
+
+        const store = readStore();
+        const payTypes = getPayTypes(store);
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+        const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+
+        for (const payload of entriesPayload) {
+          const employeeId = (payload.employeeId || '').trim();
+          if (!employeeId) return sendJson(res, 400, { error: 'Employee ID is required' });
+          const employee = employees.find((item) => item.id === employeeId);
+          if (!employee) return sendJson(res, 404, { error: `Employee not found: ${employeeId}` });
+
+          const hours = {};
+          let total = 0;
+          payTypes.forEach((type) => {
+            const value = Number(payload.hours?.[type.id] || 0);
+            if (!Number.isFinite(value)) return;
+            const rounded = Math.max(0, Math.round(value * 100) / 100);
+            hours[type.id] = rounded;
+            total += rounded;
+          });
+
+          const existingIndex = entries.findIndex(
+            (entry) => entry.employee_id === employeeId && entry.start_date === startDate && entry.end_date === endDate
+          );
+          if (total === 0 && existingIndex >= 0 && entries[existingIndex].status !== 'paid') {
+            entries.splice(existingIndex, 1);
+            continue;
+          }
+          if (total === 0) continue;
+
+          if (existingIndex >= 0) {
+            if (entries[existingIndex].status === 'paid') {
+              return sendJson(res, 400, { error: 'Paid entries cannot be edited' });
+            }
+            entries[existingIndex] = {
+              ...entries[existingIndex],
+              hours,
+              status: 'submitted'
+            };
+          } else {
+            entries.push({
+              id: randomUUID(),
+              employee_id: employeeId,
+              start_date: startDate,
+              end_date: endDate,
+              hours,
+              status: 'submitted'
+            });
+          }
+        }
+
+        saveStore({ ...store, time_entries: entries });
+        audit('user', 'timesheet.update', { startDate, endDate });
+        return sendJson(res, 200, { entries });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/time-entries/approve') {
+    return parseBody(req)
+      .then((body) => {
+        const entryIds = Array.isArray(body.entryIds) ? body.entryIds : [];
+        if (!entryIds.length) {
+          return sendJson(res, 400, { error: 'Provide entry IDs to approve' });
+        }
+        const store = readStore();
+        const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+        entries.forEach((entry) => {
+          if (entryIds.includes(entry.id) && entry.status !== 'paid') {
+            entry.status = 'approved';
+          }
+        });
+        saveStore({ ...store, time_entries: entries });
+        audit('user', 'timesheet.approve', { count: entryIds.length });
+        return sendJson(res, 200, { entries });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/time-entries/pay') {
+    return parseBody(req)
+      .then((body) => {
+        const startDate = (body.start_date || '').trim();
+        const endDate = (body.end_date || '').trim();
+        if (!startDate || !endDate) {
+          return sendJson(res, 400, { error: 'Start and end dates are required' });
+        }
+        const store = readStore();
+        const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+        let updated = 0;
+        entries.forEach((entry) => {
+          if (entry.start_date === startDate && entry.end_date === endDate && entry.status !== 'paid') {
+            entry.status = 'paid';
+            entry.paid_at = new Date().toISOString();
+            updated += 1;
+          }
+        });
+        saveStore({ ...store, time_entries: entries });
+        audit('user', 'timesheet.paid', { startDate, endDate, updated });
+        return sendJson(res, 200, { updated });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/pto') {

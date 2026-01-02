@@ -27,6 +27,7 @@
           <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+          <a class="nav-link" href="/pay-types.html">Edit Pay Types</a>
         </div>
 
         <div class="nav-group">
@@ -61,14 +62,36 @@
         </section>
 
         <section class="panel">
-          <h2>Checklist</h2>
-          <ul class="action-list">
-            <li>Verify recent <a class="nav-link" href="/timesheets.html">timesheet entries</a> and approvals.</li>
-            <li>Confirm <a class="nav-link" href="/employees.html">employee eligibility</a> and payment details.</li>
-            <li>Download a <a class="nav-link" href="/reports.html">preliminary report</a> to review deductions.</li>
-          </ul>
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Payroll periods ready to pay</h2>
+              <p class="muted" style="margin: 0;">Periods with time that has not been paid yet.</p>
+            </div>
+            <div class="actions">
+              <a class="btn ghost small" href="/timesheets.html">Enter time</a>
+              <a class="btn primary small" href="/payroll-print.html">Prepare for print</a>
+            </div>
+          </div>
+
+          <div id="payrollStatus" class="muted" style="margin-top: 12px;"></div>
+          <div id="payrollNotice" class="notice" style="display: none; margin-top: 12px;"></div>
+
+          <div style="overflow-x: auto;">
+            <table class="table" aria-label="Open payroll periods">
+              <thead>
+                <tr>
+                  <th>Pay period</th>
+                  <th>Employees</th>
+                  <th class="right">Total hours</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="payrollBody"></tbody>
+            </table>
+          </div>
+
           <div class="actions" style="margin-top: 16px;">
-            <a class="btn primary" href="/payroll-print.html">Prepare run for printing</a>
             <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
           </div>
         </section>
@@ -85,6 +108,128 @@
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });
+
+      const payrollBody = document.getElementById('payrollBody');
+      const payrollStatus = document.getElementById('payrollStatus');
+      const payrollNotice = document.getElementById('payrollNotice');
+
+      let payTypes = [];
+      let employees = [];
+      let openEntries = [];
+
+      function setNotice(message) {
+        payrollNotice.style.display = message ? 'block' : 'none';
+        payrollNotice.textContent = message || '';
+      }
+
+      function setStatus(message) {
+        payrollStatus.textContent = message || '';
+      }
+
+      function totalHours(hours) {
+        return payTypes.reduce((sum, type) => sum + Number(hours?.[type.id] || 0), 0);
+      }
+
+      function groupByPeriod(entries) {
+        return entries.reduce((acc, entry) => {
+          const key = `${entry.start_date}_${entry.end_date}`;
+          if (!acc[key]) {
+            acc[key] = { start: entry.start_date, end: entry.end_date, entries: [] };
+          }
+          acc[key].entries.push(entry);
+          return acc;
+        }, {});
+      }
+
+      function renderRows() {
+        payrollBody.innerHTML = '';
+        const grouped = Object.values(groupByPeriod(openEntries));
+        grouped.forEach((period) => {
+          const employeeNames = period.entries
+            .map((entry) => employees.find((employee) => employee.id === entry.employee_id)?.name || 'Employee')
+            .join(', ');
+          const total = period.entries.reduce((sum, entry) => sum + totalHours(entry.hours), 0);
+          const hasSubmitted = period.entries.some((entry) => entry.status === 'submitted');
+          const statusLabel = hasSubmitted ? 'Pending approvals' : 'Ready to pay';
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${period.start} → ${period.end}</td>
+            <td>${employeeNames || '-'}</td>
+            <td class="right">${total.toFixed(2)}</td>
+            <td><span class="pill">${statusLabel}</span></td>
+            <td>
+              <button class="btn secondary small" data-pay-period="${period.start}|${period.end}">Mark paid</button>
+            </td>
+          `;
+          payrollBody.appendChild(row);
+        });
+
+        if (!grouped.length) {
+          const emptyRow = document.createElement('tr');
+          emptyRow.innerHTML = `
+            <td colspan="5" class="muted">No unpaid payroll periods.</td>
+          `;
+          payrollBody.appendChild(emptyRow);
+        }
+      }
+
+      async function loadData() {
+        setStatus('Loading payroll periods...');
+        try {
+          const [employeesRes, payTypesRes, entriesRes] = await Promise.all([
+            fetch('/api/employees'),
+            fetch('/api/pay-types'),
+            fetch('/api/time-entries?unpaid=true')
+          ]);
+          const employeesPayload = await employeesRes.json();
+          const payTypesPayload = await payTypesRes.json();
+          const entriesPayload = await entriesRes.json();
+          employees = employeesPayload.employees || [];
+          payTypes = payTypesPayload.payTypes || [];
+          openEntries = entriesPayload.entries || [];
+          if (!payTypes.length) {
+            payTypes = [
+              { id: 'regular', name: 'Regular' },
+              { id: 'vacation', name: 'Vacation' },
+              { id: 'holiday', name: 'Holiday' }
+            ];
+          }
+          renderRows();
+          setStatus(openEntries.length ? 'Review unpaid periods below.' : 'No unpaid payroll periods.');
+        } catch (error) {
+          console.error('Failed to load payroll periods', error);
+          setNotice('Unable to load payroll periods.');
+        }
+      }
+
+      async function markPaid(startDate, endDate) {
+        setNotice('');
+        try {
+          const response = await fetch('/api/time-entries/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start_date: startDate, end_date: endDate })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Unable to mark period paid');
+          openEntries = openEntries.filter((entry) => !(entry.start_date === startDate && entry.end_date === endDate));
+          renderRows();
+          setStatus('Payroll marked as paid.');
+        } catch (error) {
+          console.error('Failed to mark paid', error);
+          setNotice(error.message || 'Unable to mark payroll paid.');
+        }
+      }
+
+      payrollBody.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-pay-period]');
+        if (!btn) return;
+        const [startDate, endDate] = btn.dataset.payPeriod.split('|');
+        markPaid(startDate, endDate);
+      });
+
+      loadData();
     </script>
   </body>
 </html>

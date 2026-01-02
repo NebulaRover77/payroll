@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Pay Types | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="app-header">
+      <div class="app-header__brand">Nebula Payroll</div>
+      <div class="app-header__actions">
+        <button id="logoutBtn" class="btn ghost small">Log Out</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Primary">
+        <div class="nav-group">
+          <div class="nav-label">Main</div>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Payroll</div>
+          <a class="nav-link" href="/payroll-new.html">Run a New Payroll</a>
+          <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
+          <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
+          <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+          <a class="nav-link active" aria-current="page" href="/pay-types.html">Edit Pay Types</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Employees</div>
+          <a class="nav-link" href="/employees.html">List Employees</a>
+          <a class="nav-link" href="/employee-add.html">Add Employee</a>
+          <a class="nav-link" href="/pay-schedules.html">Edit Pay Schedules</a>
+          <a class="nav-link" href="/manage-pto.html">Manage PTO</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Time Tracking</div>
+          <a class="nav-link" href="/timesheets.html">Timesheets</a>
+          <a class="nav-link" href="/approvals.html">Approvals</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Reports</div>
+          <a class="nav-link" href="/reports.html">View Reports</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Settings</div>
+          <a class="nav-link" href="/settings.html">Company Settings</a>
+        </div>
+      </nav>
+
+      <main class="workspace">
+        <section class="workspace__heading">
+          <h1>Edit Pay Types</h1>
+          <p class="lead">Enable or disable pay types for each employee.</p>
+        </section>
+
+        <section class="panel">
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Employee pay type access</h2>
+              <p class="muted" style="margin: 0;">Defaults include regular, vacation, and holiday.</p>
+            </div>
+            <div class="actions">
+              <a class="btn ghost small" href="/timesheets.html">Enter time</a>
+              <a class="btn primary small" href="/payroll-new.html">Run payroll</a>
+            </div>
+          </div>
+
+          <div id="payTypeStatus" class="muted" style="margin-top: 12px;"></div>
+          <div id="payTypeNotice" class="notice" style="display: none; margin-top: 12px;"></div>
+
+          <div style="overflow-x: auto;">
+            <table class="table" aria-label="Pay type assignments">
+              <thead>
+                <tr id="payTypeHeader">
+                  <th>Employee</th>
+                  <th>Pay schedule</th>
+                </tr>
+              </thead>
+              <tbody id="payTypeBody"></tbody>
+            </table>
+          </div>
+
+          <div class="actions" style="margin-top: 16px;">
+            <button class="btn primary" id="savePayTypes">Save changes</button>
+            <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('payrollAuthToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      document.getElementById('logoutBtn').addEventListener('click', () => {
+        localStorage.removeItem('payrollAuthToken');
+        window.location.href = '/';
+      });
+
+      const payTypeHeader = document.getElementById('payTypeHeader');
+      const payTypeBody = document.getElementById('payTypeBody');
+      const payTypeStatus = document.getElementById('payTypeStatus');
+      const payTypeNotice = document.getElementById('payTypeNotice');
+      const saveBtn = document.getElementById('savePayTypes');
+
+      let employees = [];
+      let payTypes = [];
+
+      function setNotice(message) {
+        payTypeNotice.style.display = message ? 'block' : 'none';
+        payTypeNotice.textContent = message || '';
+      }
+
+      function setStatus(message) {
+        payTypeStatus.textContent = message || '';
+      }
+
+      function buildHeader() {
+        const typeHeaders = payTypes.map((type) => `<th>${type.name}</th>`).join('');
+        payTypeHeader.innerHTML = `
+          <th>Employee</th>
+          <th>Pay schedule</th>
+          ${typeHeaders}
+        `;
+      }
+
+      function renderRows() {
+        buildHeader();
+        payTypeBody.innerHTML = '';
+        employees.forEach((employee) => {
+          const row = document.createElement('tr');
+          row.dataset.employeeId = employee.id;
+          const typeCells = payTypes
+            .map((type) => {
+              const enabled = employee.pay_types_enabled?.[type.id] ?? true;
+              return `
+                <td>
+                  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                    <input type="checkbox" data-pay-type="${type.id}" ${enabled ? 'checked' : ''} />
+                    <span data-label>${enabled ? 'On' : 'Off'}</span>
+                  </label>
+                </td>
+              `;
+            })
+            .join('');
+          row.innerHTML = `
+            <td>
+              <strong>${employee.name || 'Employee'}</strong>
+              <div class="muted" style="margin-top: 4px;">${employee.department || 'No department'}</div>
+            </td>
+            <td>${employee.pay_schedule || 'Monthly'}</td>
+            ${typeCells}
+          `;
+          payTypeBody.appendChild(row);
+        });
+
+        if (!employees.length) {
+          const emptyRow = document.createElement('tr');
+          emptyRow.innerHTML = `<td colspan="${payTypes.length + 2}" class="muted">No employees yet.</td>`;
+          payTypeBody.appendChild(emptyRow);
+        }
+      }
+
+      function collectAssignments() {
+        return employees.map((employee) => {
+          const row = payTypeBody.querySelector(`tr[data-employee-id="${employee.id}"]`);
+          const enabled = {};
+          payTypes.forEach((type) => {
+            const input = row.querySelector(`[data-pay-type="${type.id}"]`);
+            enabled[type.id] = Boolean(input?.checked);
+          });
+          return { employeeId: employee.id, enabled };
+        });
+      }
+
+      async function loadData() {
+        setStatus('Loading pay types...');
+        try {
+          const [employeesRes, payTypesRes] = await Promise.all([
+            fetch('/api/employees'),
+            fetch('/api/pay-types')
+          ]);
+          const employeesPayload = await employeesRes.json();
+          const payTypesPayload = await payTypesRes.json();
+          employees = employeesPayload.employees || [];
+          payTypes = payTypesPayload.payTypes || [];
+          if (!payTypes.length) {
+            payTypes = [
+              { id: 'regular', name: 'Regular' },
+              { id: 'vacation', name: 'Vacation' },
+              { id: 'holiday', name: 'Holiday' }
+            ];
+          }
+          renderRows();
+          setStatus('Toggle pay types and save.');
+        } catch (error) {
+          console.error('Failed to load pay types', error);
+          setNotice('Unable to load pay types.');
+        }
+      }
+
+      async function saveAssignments() {
+        setNotice('');
+        saveBtn.disabled = true;
+        setStatus('Saving changes...');
+        try {
+          const response = await fetch('/api/pay-types/assignments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignments: collectAssignments() })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Unable to save assignments');
+          employees = payload.employees || employees;
+          renderRows();
+          setStatus('Pay type settings saved.');
+        } catch (error) {
+          console.error('Failed to save pay types', error);
+          setNotice(error.message || 'Unable to save pay types.');
+        } finally {
+          saveBtn.disabled = false;
+        }
+      }
+
+      saveBtn.addEventListener('click', saveAssignments);
+      payTypeBody.addEventListener('change', (event) => {
+        const label = event.target.closest('label');
+        if (!label) return;
+        const statusLabel = label.querySelector('[data-label]');
+        if (statusLabel) {
+          statusLabel.textContent = event.target.checked ? 'On' : 'Off';
+        }
+      });
+
+      loadData();
+    </script>
+  </body>
+</html>

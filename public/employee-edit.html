@@ -27,6 +27,7 @@
           <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+          <a class="nav-link" href="/pay-types.html">Edit Pay Types</a>
         </div>
 
         <div class="nav-group">
@@ -143,6 +144,18 @@
               <div class="error" data-error="paySchedule"></div>
             </div>
             <div>
+              <label for="payRateType">Pay rate type</label>
+              <select id="payRateType" name="payRateType">
+                <option value="">Select type</option>
+                <option value="hourly">Per hour</option>
+                <option value="period">Per pay period</option>
+              </select>
+            </div>
+            <div>
+              <label for="payRate">Pay rate</label>
+              <input id="payRate" name="payRate" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div>
               <label for="status">Status</label>
               <select id="status" name="status">
                 <option value="Active">Active</option>
@@ -237,6 +250,8 @@
         document.getElementById('phone').value = employee.phone || '';
         document.getElementById('employeeId').value = employee.id || '';
         document.getElementById('ptoBalance').value = Number(employee.pto_balance_hours || 0);
+        document.getElementById('payRateType').value = employee.pay_rate_type || '';
+        document.getElementById('payRate').value = Number(employee.pay_rate || 0) || '';
         document.getElementById('status').value = employee.status || 'Active';
 
         hydratePayScheduleSelect();
@@ -313,7 +328,9 @@
           pay_schedule: payScheduleSelect.value,
           status: document.getElementById('status').value,
           id: document.getElementById('employeeId').value.trim() || employeeId,
-          pto_balance_hours: Number(document.getElementById('ptoBalance').value || 0)
+          pto_balance_hours: Number(document.getElementById('ptoBalance').value || 0),
+          pay_rate_type: document.getElementById('payRateType').value,
+          pay_rate: Number(document.getElementById('payRate').value || 0)
         };
 
         try {

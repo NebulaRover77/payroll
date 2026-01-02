@@ -27,6 +27,7 @@
           <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+          <a class="nav-link" href="/pay-types.html">Edit Pay Types</a>
         </div>
 
         <div class="nav-group">
@@ -61,14 +62,47 @@
         </section>
 
         <section class="panel">
-          <h2>Guidance</h2>
-          <ul class="action-list">
-            <li>Confirm each employee is set up in the <a class="nav-link" href="/employees.html">employee list</a>.</li>
-            <li>Collect approvals in the <a class="nav-link" href="/approvals.html">approvals queue</a> before exporting.</li>
-            <li>Send totals to the next <a class="nav-link" href="/payroll-new.html">payroll run</a> when ready.</li>
-          </ul>
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Enter time</h2>
+              <p class="muted" style="margin: 0;">Record hours for each employee and pay type for this payroll window.</p>
+            </div>
+            <div class="actions">
+              <a class="btn ghost small" href="/approvals.html">View approvals</a>
+              <a class="btn primary small" href="/payroll-new.html">Run payroll</a>
+            </div>
+          </div>
+
+          <div class="form-grid" style="margin-top: 16px;">
+            <div>
+              <label for="startDate">Start date</label>
+              <input id="startDate" type="date" />
+            </div>
+            <div>
+              <label for="endDate">End date</label>
+              <input id="endDate" type="date" />
+            </div>
+          </div>
+
+          <div id="timesheetStatus" class="muted" style="margin-top: 12px;"></div>
+          <div id="timesheetNotice" class="notice" style="display: none; margin-top: 12px;"></div>
+
+          <div style="overflow-x: auto;">
+            <table class="table" aria-label="Timesheet entries">
+              <thead>
+                <tr id="timesheetHeader">
+                  <th>Employee</th>
+                  <th>Pay schedule</th>
+                  <th class="right">Vacation left</th>
+                  <th class="right">Total hours</th>
+                </tr>
+              </thead>
+              <tbody id="timesheetBody"></tbody>
+            </table>
+          </div>
+
           <div class="actions" style="margin-top: 16px;">
-            <a class="btn primary" href="/payroll-new.html">Export to payroll</a>
+            <button class="btn primary" id="saveTimesheets">Save timesheets</button>
             <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
           </div>
         </section>
@@ -85,6 +119,227 @@
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });
+
+      const startDateInput = document.getElementById('startDate');
+      const endDateInput = document.getElementById('endDate');
+      const timesheetBody = document.getElementById('timesheetBody');
+      const timesheetHeader = document.getElementById('timesheetHeader');
+      const timesheetStatus = document.getElementById('timesheetStatus');
+      const timesheetNotice = document.getElementById('timesheetNotice');
+      const saveBtn = document.getElementById('saveTimesheets');
+
+      let employees = [];
+      let payTypes = [];
+      let existingEntries = [];
+
+      function setNotice(message) {
+        timesheetNotice.style.display = message ? 'block' : 'none';
+        timesheetNotice.textContent = message || '';
+      }
+
+      function setStatus(message) {
+        timesheetStatus.textContent = message || '';
+      }
+
+      function formatHours(value) {
+        return Number(value || 0).toFixed(2);
+      }
+
+      function buildHeader() {
+        const typeHeaders = payTypes.map((type) => `<th class="right">${type.name} hours</th>`).join('');
+        timesheetHeader.innerHTML = `
+          <th>Employee</th>
+          <th>Pay schedule</th>
+          ${typeHeaders}
+          <th class="right">Vacation left</th>
+          <th class="right">Total hours</th>
+        `;
+      }
+
+      function getEntryFor(employeeId) {
+        return existingEntries.find(
+          (entry) => entry.employee_id === employeeId && entry.start_date === startDateInput.value && entry.end_date === endDateInput.value
+        );
+      }
+
+      function renderRows() {
+        buildHeader();
+        timesheetBody.innerHTML = '';
+        employees.forEach((employee) => {
+          const entry = getEntryFor(employee.id);
+          const row = document.createElement('tr');
+          const hours = entry?.hours || {};
+          row.dataset.employeeId = employee.id;
+
+          const typeCells = payTypes
+            .map((type) => {
+              const enabled = employee.pay_types_enabled?.[type.id] ?? true;
+              const value = formatHours(hours[type.id] || 0);
+              const disabled = !enabled || entry?.status === 'paid';
+              return `
+                <td class="right">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.25"
+                    data-pay-type="${type.id}"
+                    value="${value}"
+                    ${disabled ? 'disabled' : ''}
+                  />
+                </td>
+              `;
+            })
+            .join('');
+
+          const vacationHours = Number(hours.vacation || 0);
+          const vacationLeft = vacationHours > 0 ? Math.max(0, Number(employee.pto_balance_hours || 0) - vacationHours) : null;
+          const totalHours = payTypes.reduce((sum, type) => sum + Number(hours[type.id] || 0), 0);
+
+          row.innerHTML = `
+            <td>
+              <strong>${employee.name || 'Employee'}</strong>
+              <div class="muted" style="margin-top: 4px;">${employee.department || 'No department'}</div>
+              ${entry?.status === 'paid' ? '<span class="pill" style="margin-top: 6px;">Paid</span>' : ''}
+            </td>
+            <td>${employee.pay_schedule || 'Monthly'}</td>
+            ${typeCells}
+            <td class="right">${vacationLeft === null ? '-' : `${vacationLeft.toFixed(1)}h`}</td>
+            <td class="right" data-total>${formatHours(totalHours)}</td>
+          `;
+
+          timesheetBody.appendChild(row);
+        });
+      }
+
+      function updateRowTotal(row) {
+        let total = 0;
+        payTypes.forEach((type) => {
+          const input = row.querySelector(`[data-pay-type="${type.id}"]`);
+          if (input) {
+            total += Number(input.value || 0);
+          }
+        });
+        const totalCell = row.querySelector('[data-total]');
+        if (totalCell) totalCell.textContent = formatHours(total);
+
+        const vacationInput = row.querySelector('[data-pay-type="vacation"]');
+        const vacationLeftCell = row.querySelector('td:nth-last-child(2)');
+        if (vacationInput && vacationLeftCell) {
+          const employee = employees.find((item) => item.id === row.dataset.employeeId);
+          const vacationHours = Number(vacationInput.value || 0);
+          if (vacationHours > 0) {
+            const remaining = Math.max(0, Number(employee?.pto_balance_hours || 0) - vacationHours);
+            vacationLeftCell.textContent = `${remaining.toFixed(1)}h`;
+          } else {
+            vacationLeftCell.textContent = '-';
+          }
+        }
+      }
+
+      async function loadData() {
+        setStatus('Loading employees and pay types...');
+        try {
+          const [employeeRes, payTypesRes] = await Promise.all([fetch('/api/employees'), fetch('/api/pay-types')]);
+          const employeePayload = await employeeRes.json();
+          const payTypesPayload = await payTypesRes.json();
+          employees = employeePayload.employees || [];
+          payTypes = payTypesPayload.payTypes || [];
+          if (!payTypes.length) {
+            payTypes = [
+              { id: 'regular', name: 'Regular' },
+              { id: 'vacation', name: 'Vacation' },
+              { id: 'holiday', name: 'Holiday' }
+            ];
+          }
+          await loadEntries();
+        } catch (error) {
+          console.error('Failed to load data', error);
+          setNotice('Unable to load employees. Try again later.');
+        }
+      }
+
+      async function loadEntries() {
+        if (!startDateInput.value || !endDateInput.value) return;
+        try {
+          const response = await fetch(`/api/time-entries?start_date=${startDateInput.value}&end_date=${endDateInput.value}`);
+          const payload = await response.json();
+          existingEntries = payload.entries || [];
+          renderRows();
+          setStatus('Ready to log hours.');
+        } catch (error) {
+          console.error('Failed to load entries', error);
+          setNotice('Unable to load timesheet entries.');
+        }
+      }
+
+      function collectEntries() {
+        return employees
+          .map((employee) => {
+            const row = timesheetBody.querySelector(`tr[data-employee-id="${employee.id}"]`);
+            if (!row) return null;
+            const hours = {};
+            payTypes.forEach((type) => {
+              const input = row.querySelector(`[data-pay-type="${type.id}"]`);
+              hours[type.id] = Number(input?.value || 0);
+            });
+            return { employeeId: employee.id, hours };
+          })
+          .filter(Boolean);
+      }
+
+      async function saveTimesheets() {
+        setNotice('');
+        if (!startDateInput.value || !endDateInput.value) {
+          setNotice('Select a start and end date before saving.');
+          return;
+        }
+        setStatus('Saving timesheets...');
+        saveBtn.disabled = true;
+        try {
+          const response = await fetch('/api/time-entries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              start_date: startDateInput.value,
+              end_date: endDateInput.value,
+              entries: collectEntries()
+            })
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || 'Unable to save timesheets');
+          }
+          existingEntries = payload.entries || [];
+          renderRows();
+          setStatus('Timesheets saved. Pending approval.');
+        } catch (error) {
+          console.error('Failed to save timesheets', error);
+          setNotice(error.message || 'Unable to save timesheets.');
+        } finally {
+          saveBtn.disabled = false;
+        }
+      }
+
+      function setDefaultDates() {
+        const today = new Date();
+        const end = new Date(today);
+        const start = new Date(today);
+        start.setDate(start.getDate() - 6);
+        startDateInput.value = start.toISOString().slice(0, 10);
+        endDateInput.value = end.toISOString().slice(0, 10);
+      }
+
+      timesheetBody.addEventListener('input', (event) => {
+        const row = event.target.closest('tr');
+        if (row) updateRowTotal(row);
+      });
+
+      startDateInput.addEventListener('change', loadEntries);
+      endDateInput.addEventListener('change', loadEntries);
+      saveBtn.addEventListener('click', saveTimesheets);
+
+      setDefaultDates();
+      loadData();
     </script>
   </body>
 </html>

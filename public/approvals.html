@@ -27,6 +27,7 @@
           <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+          <a class="nav-link" href="/pay-types.html">Edit Pay Types</a>
         </div>
 
         <div class="nav-group">
@@ -61,14 +62,37 @@
         </section>
 
         <section class="panel">
-          <h2>Approval queue</h2>
-          <ul class="action-list">
-            <li>Compare submissions against <a class="nav-link" href="/timesheets.html">timesheets</a> for accuracy.</li>
-            <li>Escalate discrepancies to managers before <a class="nav-link" href="/payroll-new.html">running payroll</a>.</li>
-            <li>Keep an audit trail using the <a class="nav-link" href="/reports.html">reports center</a>.</li>
-          </ul>
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Approval queue</h2>
+              <p class="muted" style="margin: 0;">Approve submitted hours to unlock payroll.</p>
+            </div>
+            <div class="actions">
+              <a class="btn ghost small" href="/timesheets.html">Enter time</a>
+              <a class="btn primary small" href="/payroll-new.html">Run payroll</a>
+            </div>
+          </div>
+
+          <div id="approvalStatus" class="muted" style="margin-top: 12px;"></div>
+          <div id="approvalNotice" class="notice" style="display: none; margin-top: 12px;"></div>
+
+          <div style="overflow-x: auto;">
+            <table class="table" aria-label="Pending approvals">
+              <thead>
+                <tr id="approvalHeader">
+                  <th>Employee</th>
+                  <th>Pay period</th>
+                  <th class="right">Total hours</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="approvalBody"></tbody>
+            </table>
+          </div>
+
           <div class="actions" style="margin-top: 16px;">
-            <a class="btn primary" href="/timesheets.html">Return to timesheets</a>
+            <button class="btn primary" id="approveSelected">Approve selected</button>
             <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
           </div>
         </section>
@@ -85,6 +109,144 @@
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });
+
+      const approvalBody = document.getElementById('approvalBody');
+      const approvalHeader = document.getElementById('approvalHeader');
+      const approvalStatus = document.getElementById('approvalStatus');
+      const approvalNotice = document.getElementById('approvalNotice');
+      const approveSelectedBtn = document.getElementById('approveSelected');
+
+      let employees = [];
+      let payTypes = [];
+      let approvals = [];
+
+      function setNotice(message) {
+        approvalNotice.style.display = message ? 'block' : 'none';
+        approvalNotice.textContent = message || '';
+      }
+
+      function setStatus(message) {
+        approvalStatus.textContent = message || '';
+      }
+
+      function formatPayPeriod(entry) {
+        return `${entry.start_date} → ${entry.end_date}`;
+      }
+
+      function totalHours(hours) {
+        return payTypes.reduce((sum, type) => sum + Number(hours?.[type.id] || 0), 0);
+      }
+
+      function buildHeader() {
+        const typeHeaders = payTypes.map((type) => `<th class="right">${type.name}</th>`).join('');
+        approvalHeader.innerHTML = `
+          <th>Employee</th>
+          <th>Pay period</th>
+          ${typeHeaders}
+          <th class="right">Total hours</th>
+          <th>Status</th>
+          <th></th>
+        `;
+      }
+
+      function renderRows() {
+        buildHeader();
+        approvalBody.innerHTML = '';
+        approvals.forEach((entry) => {
+          const employee = employees.find((item) => item.id === entry.employee_id);
+          const row = document.createElement('tr');
+          row.dataset.entryId = entry.id;
+          const typeCells = payTypes
+            .map((type) => `<td class="right">${Number(entry.hours?.[type.id] || 0).toFixed(2)}</td>`)
+            .join('');
+          row.innerHTML = `
+            <td>
+              <strong>${employee?.name || 'Employee'}</strong>
+              <div class="muted" style="margin-top: 4px;">${employee?.pay_schedule || 'Monthly'}</div>
+            </td>
+            <td>${formatPayPeriod(entry)}</td>
+            ${typeCells}
+            <td class="right">${totalHours(entry.hours).toFixed(2)}</td>
+            <td><span class="pill">${entry.status || 'submitted'}</span></td>
+            <td><input type="checkbox" data-entry-select /></td>
+          `;
+          approvalBody.appendChild(row);
+        });
+
+        if (!approvals.length) {
+          const emptyRow = document.createElement('tr');
+          emptyRow.innerHTML = `
+            <td colspan="${payTypes.length + 5}" class="muted">No pending approvals.</td>
+          `;
+          approvalBody.appendChild(emptyRow);
+        }
+      }
+
+      function getSelectedEntryIds() {
+        return Array.from(document.querySelectorAll('[data-entry-select]:checked')).map(
+          (input) => input.closest('tr')?.dataset.entryId
+        ).filter(Boolean);
+      }
+
+      async function loadData() {
+        setStatus('Loading approvals...');
+        try {
+          const [employeeRes, payTypesRes, approvalsRes] = await Promise.all([
+            fetch('/api/employees'),
+            fetch('/api/pay-types'),
+            fetch('/api/time-entries?status=submitted')
+          ]);
+          const employeePayload = await employeeRes.json();
+          const payTypesPayload = await payTypesRes.json();
+          const approvalsPayload = await approvalsRes.json();
+          employees = employeePayload.employees || [];
+          payTypes = payTypesPayload.payTypes || [];
+          approvals = approvalsPayload.entries || [];
+          if (!payTypes.length) {
+            payTypes = [
+              { id: 'regular', name: 'Regular' },
+              { id: 'vacation', name: 'Vacation' },
+              { id: 'holiday', name: 'Holiday' }
+            ];
+          }
+          renderRows();
+          setStatus(approvals.length ? 'Select rows to approve.' : 'No entries waiting on approval.');
+        } catch (error) {
+          console.error('Failed to load approvals', error);
+          setNotice('Unable to load approvals.');
+        }
+      }
+
+      async function approveSelected() {
+        setNotice('');
+        const entryIds = getSelectedEntryIds();
+        if (!entryIds.length) {
+          setNotice('Select at least one entry to approve.');
+          return;
+        }
+        approveSelectedBtn.disabled = true;
+        setStatus('Approving selections...');
+        try {
+          const response = await fetch('/api/time-entries/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entryIds })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Unable to approve entries');
+          approvals = approvals.filter((entry) => !entryIds.includes(entry.id));
+          renderRows();
+          setStatus('Entries approved.');
+        } catch (error) {
+          console.error('Failed to approve', error);
+          setNotice(error.message || 'Unable to approve entries.');
+        } finally {
+          approveSelectedBtn.disabled = false;
+        }
+      }
+
+      approveSelectedBtn.addEventListener('click', approveSelected);
+      loadData();
     </script>
   </body>
 </html>
