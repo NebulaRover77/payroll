@@ -27,6 +27,7 @@
           <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
+          <a class="nav-link" href="/pay-types.html">Edit Pay Types</a>
         </div>
 
         <div class="nav-group">
@@ -125,8 +126,188 @@
                 <p class="muted" style="margin-bottom: 4px;">PTO balance</p>
                 <p id="profilePto" style="margin: 0;"></p>
               </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Pay rate</p>
+                <p id="profilePayRate" style="margin: 0;"></p>
+              </div>
             </div>
           </div>
+        </section>
+
+        <section class="panel" style="margin-top: 20px;">
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Pay</h2>
+              <p class="muted" style="margin: 0;">Manage pay schedule, pay type, and pay rate for this employee.</p>
+            </div>
+          </div>
+
+          <form id="payForm" class="form-grid" style="margin-top: 16px;">
+            <div>
+              <label for="payScheduleSelect">Pay Schedule</label>
+              <select id="payScheduleSelect"></select>
+            </div>
+            <div>
+              <label for="payTypeSelect">Pay Type</label>
+              <select id="payTypeSelect">
+                <option value="">Select pay type</option>
+                <option value="hourly">Hourly</option>
+                <option value="salary_exempt">Salary Exempt</option>
+                <option value="salary_non_exempt">Salary Non-Exempt</option>
+              </select>
+            </div>
+            <div>
+              <label for="payRateInput">Pay Rate</label>
+              <input id="payRateInput" type="number" min="0" step="0.01" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <p class="muted" style="margin: 0;">Tips not implemented.</p>
+            </div>
+            <div style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
+              <button class="btn primary" type="submit" id="paySave">Save</button>
+              <button class="btn ghost" type="button" id="payCancel">Cancel</button>
+              <span class="muted" id="payStatus"></span>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel" style="margin-top: 20px;">
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Enter W-4</h2>
+              <p class="muted" style="margin: 0;">Capture the most recent W-4 details for this employee.</p>
+            </div>
+            <button class="btn ghost small" id="toggleW4">Edit W-4</button>
+          </div>
+
+          <form id="w4Form" class="form-grid" style="margin-top: 16px; display: none;">
+            <div>
+              <label for="w4EffectiveDate">Effective date</label>
+              <input id="w4EffectiveDate" type="date" />
+            </div>
+            <div>
+              <label for="w4FilingStatus">Filing status</label>
+              <select id="w4FilingStatus">
+                <option value="">Select status</option>
+                <option value="single">Single or Married filing separately</option>
+                <option value="married">Married filing jointly or Qualifying surviving spouse</option>
+                <option value="head">Head of household</option>
+              </select>
+            </div>
+            <div>
+              <label for="w4TaxExempt">Tax exemption</label>
+              <select id="w4TaxExempt">
+                <option value="not_exempt">Not Exempt</option>
+                <option value="exempt">Exempt</option>
+              </select>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                <input id="w4Box2c" type="checkbox" />
+                Box 2c Checked
+              </label>
+            </div>
+            <div>
+              <label for="w4Step3">Step 3: Dependent and Other Credits</label>
+              <input id="w4Step3" type="number" min="0" step="0.01" />
+            </div>
+            <div>
+              <label for="w4Step4a">Step 4a: Other income (not from jobs)</label>
+              <input id="w4Step4a" type="number" min="0" step="0.01" />
+            </div>
+            <div>
+              <label for="w4Step4b">Step 4b: Deductions</label>
+              <input id="w4Step4b" type="number" min="0" step="0.01" />
+            </div>
+            <div>
+              <label for="w4Step4c">Step 4c: Extra Withholdings</label>
+              <input id="w4Step4c" type="number" min="0" step="0.01" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label for="w4Document">Upload W-4</label>
+              <input id="w4Document" type="file" />
+              <p class="muted" id="w4DocumentLabel" style="margin-top: 6px;"></p>
+            </div>
+            <div style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
+              <button class="btn primary" type="submit" id="w4Save">Save</button>
+              <button class="btn ghost" type="button" id="w4Cancel">Cancel</button>
+              <span class="muted" id="w4Status"></span>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel" style="margin-top: 20px;">
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">Tax Exemptions</h2>
+              <p class="muted" style="margin: 0;">Track tax exemptions and end dates for this employee.</p>
+            </div>
+            <button class="btn ghost small" id="toggleTaxExemptions">Edit tax exemptions</button>
+          </div>
+
+          <form id="taxExemptionsForm" class="form-grid" style="margin-top: 16px; display: none;">
+            <div style="grid-column: 1 / -1;">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                <input id="ficaExempt" type="checkbox" />
+                FICA Exempt
+              </label>
+            </div>
+            <div>
+              <label for="ficaEndDate">FICA end date</label>
+              <input id="ficaEndDate" type="date" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                <input id="ssOnlyExempt" type="checkbox" />
+                SS Only Exempt
+              </label>
+              <p class="muted" style="margin-top: 4px;">FICA and SS Only exemptions are mutually exclusive.</p>
+            </div>
+            <div>
+              <label for="ssOnlyEndDate">SS Only end date</label>
+              <input id="ssOnlyEndDate" type="date" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                <input id="sutaExempt" type="checkbox" />
+                SUTA Exempt
+              </label>
+            </div>
+            <div>
+              <label for="sutaEndDate">SUTA end date</label>
+              <input id="sutaEndDate" type="date" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                <input id="futaExempt" type="checkbox" />
+                FUTA Exempt
+              </label>
+            </div>
+            <div>
+              <label for="futaReason">FUTA exemption reason</label>
+              <select id="futaReason">
+                <option value="">Select reason</option>
+                <option value="child_under_21">Child (under age 21) employed by a parent</option>
+                <option value="parent_employed_by_child">Parent employed by a child</option>
+                <option value="spouse_employed_by_spouse">Spouse employed by a spouse</option>
+                <option value="beneficiary_after_death">Wages paid to a beneficiary after the calendar year of a worker's death</option>
+                <option value="intern_patient">Interns or Patients employed by a hospital</option>
+                <option value="newspaper_under_18">Newspaper carriers under age 18</option>
+                <option value="student_school">Students performing services for a school/college/university</option>
+                <option value="student_camp">Student employed by an organized camp</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label for="futaEndDate">FUTA end date</label>
+              <input id="futaEndDate" type="date" />
+            </div>
+            <div style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
+              <button class="btn primary" type="submit" id="taxExemptionsSave">Save</button>
+              <button class="btn ghost" type="button" id="taxExemptionsCancel">Cancel</button>
+              <span class="muted" id="taxExemptionsStatus"></span>
+            </div>
+          </form>
         </section>
       </main>
     </div>
@@ -167,6 +348,37 @@
       const profilePhone = document.getElementById('profilePhone');
       const profileAddress = document.getElementById('profileAddress');
       const profilePto = document.getElementById('profilePto');
+      const profilePayRate = document.getElementById('profilePayRate');
+      const w4Form = document.getElementById('w4Form');
+      const w4Status = document.getElementById('w4Status');
+      const w4Document = document.getElementById('w4Document');
+      const w4DocumentLabel = document.getElementById('w4DocumentLabel');
+      const w4TaxExempt = document.getElementById('w4TaxExempt');
+      const w4Box2c = document.getElementById('w4Box2c');
+      const w4Step3 = document.getElementById('w4Step3');
+      const w4Step4a = document.getElementById('w4Step4a');
+      const w4Step4b = document.getElementById('w4Step4b');
+      const w4Step4c = document.getElementById('w4Step4c');
+      const payForm = document.getElementById('payForm');
+      const payScheduleSelect = document.getElementById('payScheduleSelect');
+      const payTypeSelect = document.getElementById('payTypeSelect');
+      const payRateInput = document.getElementById('payRateInput');
+      const payStatus = document.getElementById('payStatus');
+      const payCancel = document.getElementById('payCancel');
+      const taxExemptionsForm = document.getElementById('taxExemptionsForm');
+      const taxExemptionsStatus = document.getElementById('taxExemptionsStatus');
+      const ficaExempt = document.getElementById('ficaExempt');
+      const ficaEndDate = document.getElementById('ficaEndDate');
+      const ssOnlyExempt = document.getElementById('ssOnlyExempt');
+      const ssOnlyEndDate = document.getElementById('ssOnlyEndDate');
+      const sutaExempt = document.getElementById('sutaExempt');
+      const sutaEndDate = document.getElementById('sutaEndDate');
+      const futaExempt = document.getElementById('futaExempt');
+      const futaReason = document.getElementById('futaReason');
+      const futaEndDate = document.getElementById('futaEndDate');
+
+      let employeeData = null;
+      let paySchedules = [];
 
       if (!employeeId) {
         loadingState.style.display = 'none';
@@ -196,14 +408,30 @@
           }
 
           const payload = await response.json();
-          const employee = payload.employee;
-
-          renderEmployee(employee);
+          employeeData = payload.employee;
+          await loadPaySchedules();
+          renderEmployee(employeeData);
         } catch (error) {
           console.error('Unable to load employee', error);
           loadingState.style.display = 'none';
           errorState.style.display = 'block';
         }
+      }
+
+      async function loadPaySchedules() {
+        try {
+          const response = await fetch('/api/pay-schedules');
+          const payload = await response.json();
+          paySchedules = Array.isArray(payload.paySchedules) && payload.paySchedules.length
+            ? payload.paySchedules
+            : [{ name: 'Monthly', cadence: 'monthly' }];
+        } catch (error) {
+          console.error('Unable to load pay schedules', error);
+          paySchedules = [{ name: 'Monthly', cadence: 'monthly' }];
+        }
+        payScheduleSelect.innerHTML = paySchedules
+          .map((schedule) => `<option value="${schedule.name}">${schedule.name}</option>`)
+          .join('');
       }
 
       function renderEmployee(employee) {
@@ -240,7 +468,221 @@
         const formattedAddress = addressParts.length ? addressParts.join('\n') : employee.address;
         profileAddress.textContent = formattedAddress || '-';
         profilePto.textContent = `${Number(employee.pto_balance_hours || 0).toFixed(1)}h`;
+        profilePayRate.textContent = employee.pay_rate
+          ? `${Number(employee.pay_rate || 0).toFixed(2)} ${employee.pay_rate_type === 'period' ? 'per period' : 'per hour'}`
+          : '-';
+
+        populateW4(employee.w4 || {});
+        populateTaxExemptions(employee.tax_exemptions || {});
+        populatePayForm(employee);
       }
+
+      function populatePayForm(employee) {
+        if (!paySchedules.length) {
+          payScheduleSelect.innerHTML = '<option value="">No schedules</option>';
+        }
+        payScheduleSelect.value = employee.pay_schedule || paySchedules[0]?.name || '';
+        payTypeSelect.value = employee.pay_type || '';
+        payRateInput.value = Number(employee.pay_rate || 0) || '';
+        payStatus.textContent = '';
+      }
+
+      function toggleW4Form(show) {
+        w4Form.style.display = show ? 'grid' : 'none';
+      }
+
+      function populateW4(w4) {
+        document.getElementById('w4EffectiveDate').value = w4.effective_date || '';
+        document.getElementById('w4FilingStatus').value = w4.filing_status || '';
+        w4TaxExempt.value = w4.tax_exempt ? 'exempt' : 'not_exempt';
+        w4Box2c.checked = Boolean(w4.box2c_checked);
+        w4Step3.value = Number(w4.step3 || 0) || '';
+        w4Step4a.value = Number(w4.step4a || 0) || '';
+        w4Step4b.value = Number(w4.step4b || 0) || '';
+        w4Step4c.value = Number(w4.step4c || 0) || '';
+        w4DocumentLabel.textContent = w4.document_name ? `Uploaded: ${w4.document_name}` : '';
+        updateW4Fields();
+      }
+
+      function toggleTaxExemptionsForm(show) {
+        taxExemptionsForm.style.display = show ? 'grid' : 'none';
+      }
+
+      function populateTaxExemptions(exemptions) {
+        ficaExempt.checked = Boolean(exemptions.fica_exempt);
+        ficaEndDate.value = exemptions.fica_end_date || '';
+        ssOnlyExempt.checked = Boolean(exemptions.ss_only_exempt);
+        ssOnlyEndDate.value = exemptions.ss_only_end_date || '';
+        sutaExempt.checked = Boolean(exemptions.suta_exempt);
+        sutaEndDate.value = exemptions.suta_end_date || '';
+        futaExempt.checked = Boolean(exemptions.futa_exempt);
+        futaReason.value = exemptions.futa_reason || '';
+        futaEndDate.value = exemptions.futa_end_date || '';
+        updateTaxExemptionFields();
+      }
+
+      function updateTaxExemptionFields() {
+        if (ficaExempt.checked) {
+          ssOnlyExempt.checked = false;
+        }
+        if (ssOnlyExempt.checked) {
+          ficaExempt.checked = false;
+        }
+        ficaEndDate.disabled = !ficaExempt.checked;
+        ssOnlyEndDate.disabled = !ssOnlyExempt.checked;
+        sutaEndDate.disabled = !sutaExempt.checked;
+        futaReason.disabled = !futaExempt.checked;
+        futaEndDate.disabled = !futaExempt.checked;
+      }
+
+      function updateW4Fields() {
+        const isExempt = w4TaxExempt.value === 'exempt';
+        [w4Box2c, w4Step3, w4Step4a, w4Step4b, w4Step4c, w4Document].forEach((field) => {
+          field.disabled = isExempt;
+        });
+      }
+
+      async function readFileAsData(file) {
+        if (!file) return { name: '', data: '' };
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ name: file.name, data: reader.result || '' });
+          reader.onerror = () => reject(new Error('Unable to read file'));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function submitW4(event) {
+        event.preventDefault();
+        w4Status.textContent = 'Saving...';
+        try {
+          const filePayload = await readFileAsData(w4Document.files[0]);
+          const payload = {
+            effective_date: document.getElementById('w4EffectiveDate').value,
+            filing_status: document.getElementById('w4FilingStatus').value,
+            tax_exempt: w4TaxExempt.value === 'exempt',
+            box2c_checked: w4Box2c.checked,
+            step3: Number(w4Step3.value || 0),
+            step4a: Number(w4Step4a.value || 0),
+            step4b: Number(w4Step4b.value || 0),
+            step4c: Number(w4Step4c.value || 0),
+            document_name: filePayload.name || w4DocumentLabel.textContent.replace('Uploaded: ', ''),
+            document_data: filePayload.data || ''
+          };
+          const response = await fetch(`/api/employees/${encodeURIComponent(employeeId)}/w4`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || 'Unable to save W-4');
+          }
+          w4Status.textContent = 'W-4 saved.';
+          populateW4(result.employee.w4 || {});
+          toggleW4Form(false);
+        } catch (error) {
+          console.error('Failed to save W-4', error);
+          w4Status.textContent = error.message || 'Unable to save W-4.';
+        }
+      }
+
+      document.getElementById('toggleW4').addEventListener('click', () => toggleW4Form(true));
+      document.getElementById('w4Cancel').addEventListener('click', () => toggleW4Form(false));
+      w4TaxExempt.addEventListener('change', updateW4Fields);
+      w4Document.addEventListener('change', () => {
+        w4DocumentLabel.textContent = w4Document.files[0] ? `Selected: ${w4Document.files[0].name}` : '';
+      });
+      w4Form.addEventListener('submit', submitW4);
+
+      async function submitTaxExemptions(event) {
+        event.preventDefault();
+        taxExemptionsStatus.textContent = 'Saving...';
+        try {
+          const payload = {
+            fica_exempt: ficaExempt.checked,
+            fica_end_date: ficaEndDate.value,
+            ss_only_exempt: ssOnlyExempt.checked,
+            ss_only_end_date: ssOnlyEndDate.value,
+            suta_exempt: sutaExempt.checked,
+            suta_end_date: sutaEndDate.value,
+            futa_exempt: futaExempt.checked,
+            futa_end_date: futaEndDate.value,
+            futa_reason: futaReason.value
+          };
+          const response = await fetch(`/api/employees/${encodeURIComponent(employeeId)}/tax-exemptions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || 'Unable to save tax exemptions');
+          }
+          taxExemptionsStatus.textContent = 'Tax exemptions saved.';
+          populateTaxExemptions(result.employee.tax_exemptions || {});
+          toggleTaxExemptionsForm(false);
+        } catch (error) {
+          console.error('Failed to save tax exemptions', error);
+          taxExemptionsStatus.textContent = error.message || 'Unable to save tax exemptions.';
+        }
+      }
+
+      document.getElementById('toggleTaxExemptions').addEventListener('click', () => toggleTaxExemptionsForm(true));
+      document.getElementById('taxExemptionsCancel').addEventListener('click', () => toggleTaxExemptionsForm(false));
+      [ficaExempt, ssOnlyExempt, sutaExempt, futaExempt].forEach((el) => el.addEventListener('change', updateTaxExemptionFields));
+      taxExemptionsForm.addEventListener('submit', submitTaxExemptions);
+
+      async function submitPay(event) {
+        event.preventDefault();
+        if (!employeeData) return;
+        payStatus.textContent = 'Saving...';
+        try {
+          const payload = {
+            first_name: employeeData.first_name || '',
+            middle_name: employeeData.middle_name || '',
+            last_name: employeeData.last_name || '',
+            dob: employeeData.dob || '',
+            hire_date: employeeData.hire_date || '',
+            ssn: employeeData.ssn || '',
+            address_line1: employeeData.address_line1 || '',
+            address_line2: employeeData.address_line2 || '',
+            city: employeeData.city || '',
+            state: employeeData.state || '',
+            postal_code: employeeData.postal_code || '',
+            email: employeeData.email || '',
+            phone: employeeData.phone || '',
+            pay_schedule: payScheduleSelect.value,
+            status: employeeData.status || 'Active',
+            id: employeeData.id,
+            pto_balance_hours: Number(employeeData.pto_balance_hours || 0),
+            pay_rate: Number(payRateInput.value || 0),
+            pay_type: payTypeSelect.value,
+            pay_rate_type: payTypeSelect.value === 'hourly' ? 'hourly' : 'period'
+          };
+
+          const response = await fetch('/api/employees', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || 'Unable to save pay details');
+          }
+          employeeData = result.employee;
+          payStatus.textContent = 'Pay details saved.';
+          renderEmployee(employeeData);
+        } catch (error) {
+          console.error('Failed to save pay details', error);
+          payStatus.textContent = error.message || 'Unable to save pay details.';
+        }
+      }
+
+      payForm.addEventListener('submit', submitPay);
+      payCancel.addEventListener('click', () => {
+        if (employeeData) populatePayForm(employeeData);
+      });
     </script>
   </body>
 </html>
