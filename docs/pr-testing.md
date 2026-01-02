@@ -17,18 +17,15 @@ git fetch origin pull/23/head:pr-23
 git checkout pr-23
 ```
 
-## 3) Install and run services (one-time setup per checkout)
+## 3) Start services with Docker (one-time setup per checkout)
 
-From the repo root:
+From the repo root, bring up the API, frontend, and dependencies:
 
 ```bash
-npm install
-npm run dev
+docker compose up --build
 ```
 
-The dev script starts both the API (port 8000) and frontend (port 3000).
-
-> If you prefer Docker, use `docker-compose up --build` instead; it exposes the same ports.
+This exposes the API on port 8000 and the frontend on port 3000. Keep the stack running in this terminal while you test.
 
 ## 4) Seed a test user (only if needed)
 
