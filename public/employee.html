@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Employee | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="app-header">
+      <div class="app-header__brand">Nebula Payroll</div>
+      <div class="app-header__actions">
+        <button id="logoutBtn" class="btn ghost small">Log Out</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Primary">
+        <div class="nav-group">
+          <div class="nav-label">Main</div>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Payroll</div>
+          <a class="nav-link" href="#">Run a New Payroll</a>
+          <a class="nav-link" href="#">Run ATF Payroll</a>
+          <a class="nav-link" href="#">Print Payroll</a>
+          <a class="nav-link" href="#">Void Payroll</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Employees</div>
+          <a class="nav-link" href="/employees.html">List Employees</a>
+          <a class="nav-link" href="#">Add Employee</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Time Tracking</div>
+          <a class="nav-link" href="#">Timesheets</a>
+          <a class="nav-link" href="#">Approvals</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Reports</div>
+          <a class="nav-link" href="#">View Reports</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Settings</div>
+          <a class="nav-link" href="#">Company Settings</a>
+        </div>
+      </nav>
+
+      <main class="workspace">
+        <section class="workspace__heading">
+          <div class="flex" style="justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div>
+              <p class="muted" style="margin: 0;">Employee</p>
+              <h1 id="employeeName">Loading...</h1>
+              <p id="employeeDepartment" class="muted" style="margin-top: 4px;">&nbsp;</p>
+            </div>
+            <div class="pill" id="employeeIdLabel">&nbsp;</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h2 style="margin: 0;">Profile</h2>
+            <a class="btn ghost small" href="/employees.html">Back to roster</a>
+          </div>
+
+          <div id="loadingState" class="muted">Loading employee details...</div>
+          <div id="errorState" class="notice" style="display: none;">Unable to load employee right now.</div>
+          <div id="notFoundState" class="notice" style="display: none;">Employee not found.</div>
+
+          <div id="profile" style="display: none;">
+            <div class="info-grid">
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Name</p>
+                <p id="profileName" style="margin: 0; font-weight: 600;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Department</p>
+                <p id="profileDepartment" style="margin: 0;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">Employee ID</p>
+                <p id="profileId" class="muted" style="margin: 0;"></p>
+              </div>
+              <div>
+                <p class="muted" style="margin-bottom: 4px;">PTO balance</p>
+                <p id="profilePto" style="margin: 0;"></p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('payrollAuthToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      const logoutBtn = document.getElementById('logoutBtn');
+      logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('payrollAuthToken');
+        window.location.href = '/';
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      const employeeId = params.get('id');
+
+      const loadingState = document.getElementById('loadingState');
+      const errorState = document.getElementById('errorState');
+      const notFoundState = document.getElementById('notFoundState');
+      const profile = document.getElementById('profile');
+
+      const employeeName = document.getElementById('employeeName');
+      const employeeDepartment = document.getElementById('employeeDepartment');
+      const employeeIdLabel = document.getElementById('employeeIdLabel');
+
+      const profileName = document.getElementById('profileName');
+      const profileDepartment = document.getElementById('profileDepartment');
+      const profileId = document.getElementById('profileId');
+      const profilePto = document.getElementById('profilePto');
+
+      if (!employeeId) {
+        loadingState.style.display = 'none';
+        notFoundState.style.display = 'block';
+      } else {
+        fetchEmployee(employeeId);
+      }
+
+      async function fetchEmployee(id) {
+        loadingState.style.display = 'block';
+        errorState.style.display = 'none';
+        notFoundState.style.display = 'none';
+        profile.style.display = 'none';
+
+        try {
+          const response = await fetch(`/api/employees/${encodeURIComponent(id)}`);
+          if (response.status === 404) {
+            loadingState.style.display = 'none';
+            notFoundState.style.display = 'block';
+            employeeName.textContent = 'Employee not found';
+            employeeDepartment.textContent = '';
+            employeeIdLabel.textContent = '';
+            return;
+          }
+          if (!response.ok) {
+            throw new Error('Request failed');
+          }
+
+          const payload = await response.json();
+          const employee = payload.employee;
+
+          renderEmployee(employee);
+        } catch (error) {
+          console.error('Unable to load employee', error);
+          loadingState.style.display = 'none';
+          errorState.style.display = 'block';
+        }
+      }
+
+      function renderEmployee(employee) {
+        loadingState.style.display = 'none';
+        errorState.style.display = 'none';
+        notFoundState.style.display = 'none';
+        profile.style.display = 'block';
+
+        employeeName.textContent = employee.name || 'Employee';
+        employeeDepartment.textContent = employee.department || 'No department';
+        employeeIdLabel.textContent = employee.id ? `ID: ${employee.id}` : '';
+
+        profileName.textContent = employee.name || '-';
+        profileDepartment.textContent = employee.department || '-';
+        profileId.textContent = employee.id || '-';
+        profilePto.textContent = `${Number(employee.pto_balance_hours || 0).toFixed(1)}h`;
+      }
+    </script>
+  </body>
+</html>

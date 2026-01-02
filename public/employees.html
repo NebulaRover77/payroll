@@ -109,19 +109,19 @@
         countBadge.textContent = `${count} ${label}`;
       }
 
-      function renderRows(employees) {
-        tableBody.innerHTML = '';
-        employees.forEach((employee) => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${employee.name}</td>
+          function renderRows(employees) {
+            tableBody.innerHTML = '';
+            employees.forEach((employee) => {
+              const row = document.createElement('tr');
+              row.innerHTML = `
+            <td><a href="/employee.html?id=${encodeURIComponent(employee.id)}">${employee.name}</a></td>
             <td>${employee.department || '-'}</td>
             <td>${Number(employee.pto_balance_hours || 0).toFixed(1)}h</td>
             <td class="muted">${employee.id}</td>
           `;
-          tableBody.appendChild(row);
-        });
-      }
+              tableBody.appendChild(row);
+            });
+          }
 
       async function loadEmployees() {
         tableBody.innerHTML = '<tr><td colspan="4" class="muted">Loading employees...</td></tr>';

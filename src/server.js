@@ -71,6 +71,11 @@ function loadEmployees() {
   return employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
 }
 
+function loadEmployeeById(employeeId) {
+  const employees = loadEmployees();
+  return employees.find((employee) => employee.id === employeeId);
+}
+
 function audit(actor, action, payload) {
   appendAuditEvent({ id: randomUUID(), actor, action, payload, timestamp: new Date().toISOString() });
 }
@@ -105,6 +110,23 @@ function handleApi(req, res) {
     } catch (error) {
       console.error('Failed to load employees', error);
       return sendJson(res, 500, { error: 'Unable to load employees' });
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname.startsWith('/api/employees/')) {
+    try {
+      const employeeId = decodeURIComponent(url.pathname.replace('/api/employees/', ''));
+      if (!employeeId) {
+        return sendJson(res, 400, { error: 'Employee ID is required' });
+      }
+      const employee = loadEmployeeById(employeeId);
+      if (!employee) {
+        return sendJson(res, 404, { error: 'Employee not found' });
+      }
+      return sendJson(res, 200, { employee });
+    } catch (error) {
+      console.error('Failed to load employee', error);
+      return sendJson(res, 500, { error: 'Unable to load employee' });
     }
   }
 
