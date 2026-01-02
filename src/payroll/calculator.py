@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-from .models import CalculationResult, Deduction, EarningLine, EmployeePayrollRequest, ExplanationLine
+from .models import CalculationResult, Deduction, EmployeePayrollRequest, ExplanationLine
 from .tax_tables import TaxBracket, TaxTable, TaxTableRepository
 
 
