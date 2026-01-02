@@ -91,6 +91,7 @@ main { padding: 24px; display: flex; flex-direction: column; gap: 20px; max-widt
 .btn.ghost { background: transparent; border: 1px solid var(--border); }
 
 .split { display: grid; grid-template-columns: 380px 1fr; gap: 16px; align-items: start; }
+.admin-grid { grid-template-columns: 420px 1fr; }
 .form-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; background: #0f1223; display: grid; gap: 12px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
 .form-row { display: flex; flex-direction: column; gap: 6px; }
@@ -125,6 +126,7 @@ tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .footer { text-align: center; padding: 30px 20px 40px; color: var(--muted); }
 
 .filter { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.subtle-pill { background: rgba(255, 255, 255, 0.03); color: var(--muted); border-color: var(--border); }
 
 @media (max-width: 960px) {
   .split { grid-template-columns: 1fr; }
