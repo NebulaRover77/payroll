@@ -5,10 +5,12 @@ Revises: 0001
 Create Date: 2026-01-02 03:42:43.296697
 
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'da7e2e928e54'
