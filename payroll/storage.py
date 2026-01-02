@@ -53,6 +53,11 @@ class DataStore:
             entries = [e for e in entries if e.employee_id == employee_id]
         return sorted(entries, key=lambda e: e.worked_date)
 
+    def list_employees(self) -> List[Employee]:
+        """Return employees ordered by display name."""
+
+        return sorted(self.employees.values(), key=lambda e: e.name.lower())
+
     @staticmethod
     def _date_serializer(value):
         if isinstance(value, date):

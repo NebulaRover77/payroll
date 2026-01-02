@@ -13,6 +13,7 @@ const { loadSetup, saveSetup, appendAuditEvent, loadAuditLog } = require('./stor
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'changeme';
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const DATA_STORE_PATH = path.join(__dirname, '..', 'data', 'store.json');
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -62,6 +63,19 @@ function parseBody(req) {
   });
 }
 
+function loadEmployees() {
+  if (!fs.existsSync(DATA_STORE_PATH)) return [];
+  const content = fs.readFileSync(DATA_STORE_PATH, 'utf-8');
+  const parsed = JSON.parse(content || '{}');
+  const employees = Array.isArray(parsed.employees) ? parsed.employees : [];
+  return employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+}
+
+function loadEmployeeById(employeeId) {
+  const employees = loadEmployees();
+  return employees.find((employee) => employee.id === employeeId);
+}
+
 function audit(actor, action, payload) {
   appendAuditEvent({ id: randomUUID(), actor, action, payload, timestamp: new Date().toISOString() });
 }
@@ -88,6 +102,32 @@ function handleApi(req, res) {
       enabled: Boolean(setup.completed),
       reason: setup.completed ? null : 'Complete the company setup wizard before running payroll.'
     });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/employees') {
+    try {
+      return sendJson(res, 200, { employees: loadEmployees() });
+    } catch (error) {
+      console.error('Failed to load employees', error);
+      return sendJson(res, 500, { error: 'Unable to load employees' });
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname.startsWith('/api/employees/')) {
+    try {
+      const employeeId = decodeURIComponent(url.pathname.replace('/api/employees/', ''));
+      if (!employeeId) {
+        return sendJson(res, 400, { error: 'Employee ID is required' });
+      }
+      const employee = loadEmployeeById(employeeId);
+      if (!employee) {
+        return sendJson(res, 404, { error: 'Employee not found' });
+      }
+      return sendJson(res, 200, { employee });
+    } catch (error) {
+      console.error('Failed to load employee', error);
+      return sendJson(res, 500, { error: 'Unable to load employee' });
+    }
   }
 
   if (req.method === 'GET' && url.pathname === '/api/metadata') {

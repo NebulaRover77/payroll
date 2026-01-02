@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Employees | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="app-header">
+      <div class="app-header__brand">Nebula Payroll</div>
+      <div class="app-header__actions">
+        <button id="logoutBtn" class="btn ghost small">Log Out</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Primary">
+        <div class="nav-group">
+          <div class="nav-label">Main</div>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Payroll</div>
+          <a class="nav-link" href="#">Run a New Payroll</a>
+          <a class="nav-link" href="#">Run ATF Payroll</a>
+          <a class="nav-link" href="#">Print Payroll</a>
+          <a class="nav-link" href="#">Void Payroll</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Employees</div>
+          <a class="nav-link active" aria-current="page" href="/employees.html">List Employees</a>
+          <a class="nav-link" href="#">Add Employee</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Time Tracking</div>
+          <a class="nav-link" href="#">Timesheets</a>
+          <a class="nav-link" href="#">Approvals</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Reports</div>
+          <a class="nav-link" href="#">View Reports</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Settings</div>
+          <a class="nav-link" href="#">Company Settings</a>
+        </div>
+      </nav>
+
+      <main class="workspace">
+        <section class="workspace__heading">
+          <h1>Employees</h1>
+          <p class="lead">Review employee roster details including department and PTO balances.</p>
+        </section>
+
+        <section class="panel">
+          <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <h2 style="margin: 0;">Roster</h2>
+              <p class="muted" style="margin: 4px 0 0;">Sorted alphabetically by employee name.</p>
+            </div>
+            <div class="pill" id="employeeCount">0 employees</div>
+          </div>
+
+          <div class="table-responsive" style="overflow-x: auto;">
+            <table class="table" aria-describedby="employeeCount">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Department</th>
+                  <th scope="col">PTO balance</th>
+                  <th scope="col">Employee ID</th>
+                </tr>
+              </thead>
+              <tbody id="employeeTable"></tbody>
+            </table>
+          </div>
+
+          <div id="emptyState" class="muted" style="display: none; margin-top: 12px;">No employees found.</div>
+          <div id="errorState" class="notice" style="display: none; margin-top: 12px;">Unable to load employees right now.</div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('payrollAuthToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      const logoutBtn = document.getElementById('logoutBtn');
+      logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('payrollAuthToken');
+        window.location.href = '/';
+      });
+
+      const tableBody = document.getElementById('employeeTable');
+      const countBadge = document.getElementById('employeeCount');
+      const emptyState = document.getElementById('emptyState');
+      const errorState = document.getElementById('errorState');
+
+      function setBadge(count) {
+        const label = count === 1 ? 'employee' : 'employees';
+        countBadge.textContent = `${count} ${label}`;
+      }
+
+          function renderRows(employees) {
+            tableBody.innerHTML = '';
+            employees.forEach((employee) => {
+              const row = document.createElement('tr');
+              row.innerHTML = `
+            <td><a href="/employee.html?id=${encodeURIComponent(employee.id)}">${employee.name}</a></td>
+            <td>${employee.department || '-'}</td>
+            <td>${Number(employee.pto_balance_hours || 0).toFixed(1)}h</td>
+            <td class="muted">${employee.id}</td>
+          `;
+              tableBody.appendChild(row);
+            });
+          }
+
+      async function loadEmployees() {
+        tableBody.innerHTML = '<tr><td colspan="4" class="muted">Loading employees...</td></tr>';
+        emptyState.style.display = 'none';
+        errorState.style.display = 'none';
+        try {
+          const response = await fetch('/api/employees');
+          if (!response.ok) {
+            throw new Error('Request failed');
+          }
+          const payload = await response.json();
+          const employees = payload.employees || [];
+          setBadge(employees.length);
+          if (employees.length === 0) {
+            tableBody.innerHTML = '';
+            emptyState.style.display = 'block';
+            return;
+          }
+          renderRows(employees);
+        } catch (error) {
+          console.error('Unable to load employees', error);
+          tableBody.innerHTML = '';
+          errorState.style.display = 'block';
+        }
+      }
+
+      loadEmployees();
+    </script>
+  </body>
+</html>

@@ -83,6 +83,20 @@ def cmd_approve_pto(args: argparse.Namespace) -> None:
     print(f"Approved PTO as entry {entry.id}")
 
 
+def cmd_list_employees(args: argparse.Namespace) -> None:
+    store = store_from_args(args)
+    employees = store.list_employees()
+
+    if not employees:
+        print("No employees found")
+        return
+
+    for emp in employees:
+        print(
+            f"{emp.id} {emp.name} (dept: {emp.department}) PTO balance: {emp.pto_balance_hours}h"
+        )
+
+
 def cmd_timesheet(args: argparse.Namespace) -> None:
     store = store_from_args(args)
     start, end = week_bounds(parse_date(args.anchor))
@@ -173,6 +187,9 @@ def build_parser() -> argparse.ArgumentParser:
     pto_approve.add_argument("approver")
     pto_approve.add_argument("pay_period")
     pto_approve.set_defaults(func=cmd_approve_pto)
+
+    list_employees = sub.add_parser("list-employees", help="List employees")
+    list_employees.set_defaults(func=cmd_list_employees)
 
     timesheet = sub.add_parser("timesheet", help="Render weekly timesheet view")
     timesheet.add_argument("employee")
