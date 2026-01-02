@@ -25,6 +25,7 @@
           <div class="nav-label">Payroll</div>
           <a class="nav-link" href="/payroll-new.html">Run a New Payroll</a>
           <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
+          <a class="nav-link" href="/payroll-view.html">View Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
           <a class="nav-link" href="/pay-types.html">Edit Pay Types</a>
@@ -201,11 +202,9 @@
                 <option value="exempt">Exempt</option>
               </select>
             </div>
-            <div style="grid-column: 1 / -1;">
-              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
-                <input id="w4Box2c" type="checkbox" />
-                Box 2c Checked
-              </label>
+            <div class="checkbox-field">
+              <input id="w4Box2c" type="checkbox" />
+              <label for="w4Box2c">Box 2c Checked</label>
             </div>
             <div>
               <label for="w4Step3">Step 3: Dependent and Other Credits</label>
@@ -246,61 +245,63 @@
           </div>
 
           <form id="taxExemptionsForm" class="form-grid" style="margin-top: 16px; display: none;">
-            <div style="grid-column: 1 / -1;">
-              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+            <div class="form-row">
+              <div class="checkbox-field">
                 <input id="ficaExempt" type="checkbox" />
-                FICA Exempt
-              </label>
+                <label for="ficaExempt">FICA Exempt</label>
+              </div>
+              <div>
+                <label for="ficaEndDate">FICA end date</label>
+                <input id="ficaEndDate" type="date" />
+              </div>
             </div>
-            <div>
-              <label for="ficaEndDate">FICA end date</label>
-              <input id="ficaEndDate" type="date" />
+            <div class="form-row">
+              <div class="checkbox-field-group">
+                <div class="checkbox-field">
+                  <input id="ssOnlyExempt" type="checkbox" />
+                  <label for="ssOnlyExempt">SS Only Exempt</label>
+                </div>
+                <p class="muted" style="margin-top: 4px;">FICA and SS Only exemptions are mutually exclusive.</p>
+              </div>
+              <div>
+                <label for="ssOnlyEndDate">SS Only end date</label>
+                <input id="ssOnlyEndDate" type="date" />
+              </div>
             </div>
-            <div style="grid-column: 1 / -1;">
-              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
-                <input id="ssOnlyExempt" type="checkbox" />
-                SS Only Exempt
-              </label>
-              <p class="muted" style="margin-top: 4px;">FICA and SS Only exemptions are mutually exclusive.</p>
-            </div>
-            <div>
-              <label for="ssOnlyEndDate">SS Only end date</label>
-              <input id="ssOnlyEndDate" type="date" />
-            </div>
-            <div style="grid-column: 1 / -1;">
-              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+            <div class="form-row">
+              <div class="checkbox-field">
                 <input id="sutaExempt" type="checkbox" />
-                SUTA Exempt
-              </label>
+                <label for="sutaExempt">SUTA Exempt</label>
+              </div>
+              <div>
+                <label for="sutaEndDate">SUTA end date</label>
+                <input id="sutaEndDate" type="date" />
+              </div>
             </div>
-            <div>
-              <label for="sutaEndDate">SUTA end date</label>
-              <input id="sutaEndDate" type="date" />
-            </div>
-            <div style="grid-column: 1 / -1;">
-              <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+            <div class="form-row form-row--three">
+              <div class="checkbox-field">
                 <input id="futaExempt" type="checkbox" />
-                FUTA Exempt
-              </label>
-            </div>
-            <div>
-              <label for="futaReason">FUTA exemption reason</label>
-              <select id="futaReason">
-                <option value="">Select reason</option>
-                <option value="child_under_21">Child (under age 21) employed by a parent</option>
-                <option value="parent_employed_by_child">Parent employed by a child</option>
-                <option value="spouse_employed_by_spouse">Spouse employed by a spouse</option>
-                <option value="beneficiary_after_death">Wages paid to a beneficiary after the calendar year of a worker's death</option>
-                <option value="intern_patient">Interns or Patients employed by a hospital</option>
-                <option value="newspaper_under_18">Newspaper carriers under age 18</option>
-                <option value="student_school">Students performing services for a school/college/university</option>
-                <option value="student_camp">Student employed by an organized camp</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label for="futaEndDate">FUTA end date</label>
-              <input id="futaEndDate" type="date" />
+                <label for="futaExempt">FUTA Exempt</label>
+              </div>
+              <div>
+                <label for="futaReason">FUTA exemption reason</label>
+                <select id="futaReason">
+                  <option value="">Select reason</option>
+                  <option value="child_under_21">Child (under age 21) employed by a parent</option>
+                  <option value="parent_employed_by_child">Parent employed by a child</option>
+                  <option value="spouse_employed_by_spouse">Spouse employed by a spouse</option>
+                  <option value="beneficiary_after_death">Wages paid to a beneficiary after the calendar year of a worker's death</option>
+                  <option value="intern_patient">Interns or Patients employed by a hospital</option>
+                  <option value="newspaper_under_18">Newspaper carriers under age 18</option>
+                  <option value="student_school">Students performing services for a school/college/university</option>
+                  <option value="student_camp">Student employed by an organized camp</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label for="futaEndDate">FUTA end date</label>
+                <input id="futaEndDate" type="date" />
+              </div>
             </div>
             <div style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
               <button class="btn primary" type="submit" id="taxExemptionsSave">Save</button>
@@ -537,7 +538,7 @@
 
       function updateW4Fields() {
         const isExempt = w4TaxExempt.value === 'exempt';
-        [w4Box2c, w4Step3, w4Step4a, w4Step4b, w4Step4c, w4Document].forEach((field) => {
+        [w4Box2c, w4Step3, w4Step4a, w4Step4b, w4Step4c].forEach((field) => {
           field.disabled = isExempt;
         });
       }
