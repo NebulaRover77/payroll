@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard | Nebula Payroll</title>
+    <title>Reports | Nebula Payroll</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="subtle-bg">
@@ -18,7 +18,7 @@
       <nav class="sidebar" aria-label="Primary">
         <div class="nav-group">
           <div class="nav-label">Main</div>
-          <a class="nav-link active" aria-current="page" href="/dashboard.html">Dashboard</a>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
         </div>
 
         <div class="nav-group">
@@ -43,7 +43,7 @@
 
         <div class="nav-group">
           <div class="nav-label">Reports</div>
-          <a class="nav-link" href="/reports.html">View Reports</a>
+          <a class="nav-link active" aria-current="page" href="/reports.html">View Reports</a>
         </div>
 
         <div class="nav-group">
@@ -54,35 +54,21 @@
 
       <main class="workspace">
         <section class="workspace__heading">
-          <h1>Welcome back</h1>
-          <p class="lead">Your tools are organized on the left so you can jump straight into payroll.</p>
+          <h1>Reports</h1>
+          <p class="lead">Download payroll summaries, tax filings, and audit-ready exports.</p>
         </section>
 
-        <section class="workspace__grid">
-          <article class="panel">
-            <h2>Quick actions</h2>
-            <ul class="action-list">
-              <li><a class="nav-link" href="/payroll-new.html">Run a new payroll for this pay period.</a></li>
-              <li><a class="nav-link" href="/payroll-atf.html">Enter after-the-fact (ATF) payrolls when checks already went out.</a></li>
-              <li><a class="nav-link" href="/payroll-print.html">Print</a> or <a class="nav-link" href="/payroll-void.html">void</a> recent payroll runs.</li>
-            </ul>
-          </article>
-
-          <article class="panel">
-            <h2>Employees</h2>
-            <ul class="action-list">
-              <li><a class="nav-link" href="/employees.html">Review existing employees before the next run.</a></li>
-              <li><a class="nav-link" href="/employee-add.html">Add a new hire so their hours can be tracked.</a></li>
-            </ul>
-          </article>
-
-          <article class="panel">
-            <h2>Reports & Settings</h2>
-            <ul class="action-list">
-              <li><a class="nav-link" href="/reports.html">View payroll, tax, and deduction reports.</a></li>
-              <li><a class="nav-link" href="/settings.html">Update company or payroll settings anytime.</a></li>
-            </ul>
-          </article>
+        <section class="panel">
+          <h2>Popular reports</h2>
+          <ul class="action-list">
+            <li>Payroll register for the last run from <a class="nav-link" href="/payroll-new.html">run history</a>.</li>
+            <li>Tax liability summary for filings managed in <a class="nav-link" href="/settings.html">company settings</a>.</li>
+            <li>Time tracking variance sourced from <a class="nav-link" href="/timesheets.html">timesheets</a> and approvals.</li>
+          </ul>
+          <div class="actions" style="margin-top: 16px;">
+            <a class="btn primary" href="/payroll-print.html">Download printable register</a>
+            <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
+          </div>
         </section>
       </main>
     </div>
@@ -93,8 +79,7 @@
         window.location.href = '/';
       }
 
-      const logoutBtn = document.getElementById('logoutBtn');
-      logoutBtn.addEventListener('click', () => {
+      document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });

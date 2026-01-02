@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard | Nebula Payroll</title>
+    <title>Run ATF Payroll | Nebula Payroll</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="subtle-bg">
@@ -18,13 +18,13 @@
       <nav class="sidebar" aria-label="Primary">
         <div class="nav-group">
           <div class="nav-label">Main</div>
-          <a class="nav-link active" aria-current="page" href="/dashboard.html">Dashboard</a>
+          <a class="nav-link" href="/dashboard.html">Dashboard</a>
         </div>
 
         <div class="nav-group">
           <div class="nav-label">Payroll</div>
           <a class="nav-link" href="/payroll-new.html">Run a New Payroll</a>
-          <a class="nav-link" href="/payroll-atf.html">Run ATF Payroll</a>
+          <a class="nav-link active" aria-current="page" href="/payroll-atf.html">Run ATF Payroll</a>
           <a class="nav-link" href="/payroll-print.html">Print Payroll</a>
           <a class="nav-link" href="/payroll-void.html">Void Payroll</a>
         </div>
@@ -54,35 +54,21 @@
 
       <main class="workspace">
         <section class="workspace__heading">
-          <h1>Welcome back</h1>
-          <p class="lead">Your tools are organized on the left so you can jump straight into payroll.</p>
+          <h1>Run ATF Payroll</h1>
+          <p class="lead">Record after-the-fact payrolls when payments have already been issued.</p>
         </section>
 
-        <section class="workspace__grid">
-          <article class="panel">
-            <h2>Quick actions</h2>
-            <ul class="action-list">
-              <li><a class="nav-link" href="/payroll-new.html">Run a new payroll for this pay period.</a></li>
-              <li><a class="nav-link" href="/payroll-atf.html">Enter after-the-fact (ATF) payrolls when checks already went out.</a></li>
-              <li><a class="nav-link" href="/payroll-print.html">Print</a> or <a class="nav-link" href="/payroll-void.html">void</a> recent payroll runs.</li>
-            </ul>
-          </article>
-
-          <article class="panel">
-            <h2>Employees</h2>
-            <ul class="action-list">
-              <li><a class="nav-link" href="/employees.html">Review existing employees before the next run.</a></li>
-              <li><a class="nav-link" href="/employee-add.html">Add a new hire so their hours can be tracked.</a></li>
-            </ul>
-          </article>
-
-          <article class="panel">
-            <h2>Reports & Settings</h2>
-            <ul class="action-list">
-              <li><a class="nav-link" href="/reports.html">View payroll, tax, and deduction reports.</a></li>
-              <li><a class="nav-link" href="/settings.html">Update company or payroll settings anytime.</a></li>
-            </ul>
-          </article>
+        <section class="panel">
+          <h2>How to proceed</h2>
+          <ul class="action-list">
+            <li>Capture the original payment date and net amounts for each employee.</li>
+            <li>Use <a class="nav-link" href="/reports.html">reports</a> to reconcile taxes already remitted.</li>
+            <li>Attach supporting documents so finance can audit later.</li>
+          </ul>
+          <div class="actions" style="margin-top: 16px;">
+            <a class="btn primary" href="/payroll-print.html">Generate summaries</a>
+            <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
+          </div>
         </section>
       </main>
     </div>
@@ -93,8 +79,7 @@
         window.location.href = '/';
       }
 
-      const logoutBtn = document.getElementById('logoutBtn');
-      logoutBtn.addEventListener('click', () => {
+      document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });
