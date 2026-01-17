@@ -24,15 +24,68 @@
         </section>
 
         <section class="panel">
-          <h2>Available outputs</h2>
-          <ul class="action-list">
-            <li>Download registers with gross, net, and deduction details.</li>
-            <li>Create printable checks after verifying <a class="nav-link" href="/employees.html">employee data</a>.</li>
-            <li>Save PDFs for compliance and <a class="nav-link" href="/reports.html">reporting</a>.</li>
-          </ul>
-          <div class="actions" style="margin-top: 16px;">
-            <a class="btn primary" href="/payroll-void.html">Continue to void checks</a>
-            <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
+          <div class="flex" style="justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 6px;">Payroll register</h2>
+              <p class="muted" style="margin: 0;">Select a payroll run to generate a printable register and checks summary.</p>
+            </div>
+            <div class="actions">
+              <button class="btn primary" id="printRegisterBtn">Print register</button>
+              <a class="btn ghost" href="/payroll-void.html">Continue to void checks</a>
+              <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
+            </div>
+          </div>
+
+          <div class="form-grid" style="margin-top: 16px;">
+            <div>
+              <label for="runSelect">Payroll run</label>
+              <select id="runSelect" class="input"></select>
+            </div>
+            <div>
+              <label for="printNotes">Print notes</label>
+              <input id="printNotes" class="input" placeholder="Optional run note for the register" />
+            </div>
+          </div>
+
+          <div id="printStatus" class="muted" style="margin-top: 12px;"></div>
+          <div id="printNotice" class="notice" style="display: none; margin-top: 12px;"></div>
+
+          <div id="registerSummary" style="display: none; margin-top: 16px;">
+            <h3 style="margin: 0 0 12px;">Register summary</h3>
+            <div class="summary-card">
+              <div>
+                <p class="muted">Employees</p>
+                <p id="summaryEmployees">0</p>
+              </div>
+              <div>
+                <p class="muted">Total hours</p>
+                <p id="summaryHours">0</p>
+              </div>
+              <div>
+                <p class="muted">Gross pay</p>
+                <p id="summaryGross">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">Net pay</p>
+                <p id="summaryNet">$0.00</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto; margin-top: 16px;">
+            <table class="table" aria-label="Printable payroll register">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Payment date</th>
+                  <th class="right">Hours</th>
+                  <th class="right">Gross pay</th>
+                  <th class="right">Taxes</th>
+                  <th class="right">Net pay</th>
+                </tr>
+              </thead>
+              <tbody id="registerBody"></tbody>
+            </table>
           </div>
         </section>
       </main>
@@ -49,6 +102,388 @@
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });
+
+      const runSelect = document.getElementById('runSelect');
+      const printNotes = document.getElementById('printNotes');
+      const registerBody = document.getElementById('registerBody');
+      const printStatus = document.getElementById('printStatus');
+      const printNotice = document.getElementById('printNotice');
+      const registerSummary = document.getElementById('registerSummary');
+      const summaryEmployees = document.getElementById('summaryEmployees');
+      const summaryHours = document.getElementById('summaryHours');
+      const summaryGross = document.getElementById('summaryGross');
+      const summaryNet = document.getElementById('summaryNet');
+      const printRegisterBtn = document.getElementById('printRegisterBtn');
+
+      const SS_RATE = 0.062;
+      const MEDICARE_RATE = 0.0145;
+      const SS_WAGE_BASE = 160200;
+      const STANDARD_DEDUCTION = {
+        married: 12900,
+        single: 8600,
+        head: 8600
+      };
+
+      let payTypes = [];
+      let employees = [];
+      let paySchedules = [];
+      let payrollRuns = [];
+      let paidEntries = [];
+      let selectedRun = null;
+
+      function setNotice(message) {
+        printNotice.style.display = message ? 'block' : 'none';
+        printNotice.textContent = message || '';
+      }
+
+      function setStatus(message) {
+        printStatus.textContent = message || '';
+      }
+
+      function formatCurrency(value) {
+        return `$${Number(value || 0).toFixed(2)}`;
+      }
+
+      function formatPaymentDate(value) {
+        if (!value) return '—';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      function totalHours(hours) {
+        return payTypes.reduce((sum, type) => sum + Number(hours?.[type.id] || 0), 0);
+      }
+
+      function getEmployee(entry) {
+        return employees.find((employee) => employee.id === entry.employee_id);
+      }
+
+      function getRunEntries(run) {
+        return paidEntries.filter((entry) => entry.start_date === run.start_date && entry.end_date === run.end_date);
+      }
+
+      function computeEarnings(entry, employee) {
+        const hoursByType = payTypes.reduce((acc, type) => {
+          acc[type.id] = Number(entry.hours?.[type.id] || 0);
+          return acc;
+        }, {});
+        const total = totalHours(entry.hours);
+        const rate = Number(employee?.pay_rate || 0);
+        const isSalary = employee?.pay_rate_type === 'period';
+        const earnings = payTypes.map((type) => {
+          const hours = hoursByType[type.id];
+          let amount = hours * rate;
+          if (isSalary) {
+            amount = type.id === 'regular' ? rate : 0;
+          }
+          return { id: type.id, name: type.name, hours, rate, amount };
+        });
+        const gross = isSalary && total > 0 ? rate : earnings.reduce((sum, line) => sum + line.amount, 0);
+        return { earnings, gross, totalHours: total, rate };
+      }
+
+      function getPayPeriods(employee) {
+        const scheduleName = employee?.pay_schedule || '';
+        const schedule = paySchedules.find((item) => item.name === scheduleName);
+        const cadence = (schedule?.cadence || scheduleName || '').toLowerCase();
+        const mapping = {
+          weekly: 52,
+          biweekly: 26,
+          semimonthly: 24,
+          monthly: 12,
+          quarterly: 4,
+          semiannually: 2,
+          daily: 260
+        };
+        return mapping[cadence] || 26;
+      }
+
+      function resolveFilingStatus(employee) {
+        const status = employee?.w4?.filing_status;
+        if (status === 'married') return 'married';
+        if (status === 'head') return 'head';
+        return 'single';
+      }
+
+      function lookupPercentageTable(adjustedAnnual, filingStatus, step2Checked) {
+        const tables = {
+          standard: {
+            married: [
+              [0, 19300, 0, 0, 0],
+              [19300, 44100, 0, 0.1, 19300],
+              [44100, 120100, 2480, 0.12, 44100],
+              [120100, 230700, 11600, 0.22, 120100],
+              [230700, 422850, 35932, 0.24, 230700],
+              [422850, 531750, 82048, 0.32, 422850],
+              [531750, 788000, 116896, 0.35, 531750],
+              [788000, Infinity, 206583.5, 0.37, 788000]
+            ],
+            single: [
+              [0, 7500, 0, 0, 0],
+              [7500, 19900, 0, 0.1, 7500],
+              [19900, 57900, 1240, 0.12, 19900],
+              [57900, 113200, 5800, 0.22, 57900],
+              [113200, 209275, 17966, 0.24, 113200],
+              [209275, 263725, 41024, 0.32, 209275],
+              [263725, 648100, 58448, 0.35, 263725],
+              [648100, Infinity, 192979.25, 0.37, 648100]
+            ],
+            head: [
+              [0, 15550, 0, 0, 0],
+              [15550, 33250, 0, 0.1, 15550],
+              [33250, 83000, 1770, 0.12, 33250],
+              [83000, 121250, 7740, 0.22, 83000],
+              [121250, 217300, 16155, 0.24, 121250],
+              [217300, 271750, 39207, 0.32, 217300],
+              [271750, 656150, 56631, 0.35, 271750],
+              [656150, Infinity, 191171, 0.37, 656150]
+            ]
+          },
+          step2: {
+            married: [
+              [0, 16100, 0, 0, 0],
+              [16100, 28500, 0, 0.1, 16100],
+              [28500, 66500, 1240, 0.12, 28500],
+              [66500, 121800, 5800, 0.22, 66500],
+              [121800, 217875, 17966, 0.24, 121800],
+              [217875, 272325, 41024, 0.32, 217875],
+              [272325, 400450, 58448, 0.35, 272325],
+              [400450, Infinity, 103291.75, 0.37, 400450]
+            ],
+            single: [
+              [0, 8050, 0, 0, 0],
+              [8050, 14250, 0, 0.1, 8050],
+              [14250, 33250, 620, 0.12, 14250],
+              [33250, 60900, 2900, 0.22, 33250],
+              [60900, 108938, 8983, 0.24, 60900],
+              [108938, 136163, 20512, 0.32, 108938],
+              [136163, 328350, 29224, 0.35, 136163],
+              [328350, Infinity, 96489.63, 0.37, 328350]
+            ],
+            head: [
+              [0, 12075, 0, 0, 0],
+              [12075, 20925, 0, 0.1, 12075],
+              [20925, 45800, 885, 0.12, 20925],
+              [45800, 64925, 3870, 0.22, 45800],
+              [64925, 112950, 8077.5, 0.24, 64925],
+              [112950, 140175, 19603.5, 0.32, 112950],
+              [140175, 332375, 28315.5, 0.35, 140175],
+              [332375, Infinity, 95585.5, 0.37, 332375]
+            ]
+          }
+        };
+        const key = step2Checked ? 'step2' : 'standard';
+        const table = tables[key][filingStatus];
+        return table.find((row) => adjustedAnnual >= row[0] && adjustedAnnual < row[1]);
+      }
+
+      function computeFIT(gross, employee) {
+        if (employee?.w4?.tax_exempt) return 0;
+        const payPeriods = getPayPeriods(employee);
+        const filingStatus = resolveFilingStatus(employee);
+        const step2Checked = Boolean(employee?.w4?.box2c_checked);
+        const step3Credits = Number(employee?.w4?.step3 || 0);
+        const step4a = Number(employee?.w4?.step4a || 0);
+        const step4b = Number(employee?.w4?.step4b || 0);
+        const step4c = Number(employee?.w4?.step4c || 0);
+
+        const annualized = gross * payPeriods;
+        const adjustedAnnual = Math.max(
+          0,
+          annualized + step4a - (step4b + (step2Checked ? 0 : STANDARD_DEDUCTION[filingStatus]))
+        );
+        const bracket = lookupPercentageTable(adjustedAnnual, filingStatus, step2Checked);
+        if (!bracket) return 0;
+        const [, , base, rate, excessOver] = bracket;
+        const tentativeAnnual = base + Math.max(0, adjustedAnnual - excessOver) * rate;
+        const tentativePerPeriod = tentativeAnnual / payPeriods;
+        const creditPerPeriod = step3Credits / payPeriods;
+        const afterCredits = Math.max(0, tentativePerPeriod - creditPerPeriod);
+        return afterCredits + step4c;
+      }
+
+      function computeTaxes(gross, employee, ytdGross) {
+        const w4Exempt = employee?.w4?.tax_exempt;
+        const taxExemptions = employee?.tax_exemptions || {};
+        const ficaExempt = Boolean(taxExemptions.fica_exempt);
+        const ssOnlyExempt = Boolean(taxExemptions.ss_only_exempt);
+        const fit = w4Exempt ? 0 : computeFIT(gross, employee);
+        let ssTaxable = gross;
+        if (ytdGross !== null) {
+          ssTaxable = Math.max(0, Math.min(gross, SS_WAGE_BASE - ytdGross));
+        }
+        const ss = ficaExempt || ssOnlyExempt ? 0 : ssTaxable * SS_RATE;
+        const medicare = ficaExempt ? 0 : gross * MEDICARE_RATE;
+        const totalEmployeeTaxes = fit + ss + medicare;
+        return {
+          fit,
+          ss,
+          medicare,
+          totalEmployeeTaxes
+        };
+      }
+
+      function yearFromDate(dateString) {
+        const [year] = (dateString || '').split('-');
+        return year || '';
+      }
+
+      function sumYearToDate(employeeId, throughDate) {
+        const year = yearFromDate(throughDate);
+        let ytdGross = 0;
+        paidEntries.forEach((entry) => {
+          if (entry.employee_id !== employeeId) return;
+          if (yearFromDate(entry.end_date) !== year) return;
+          if (entry.end_date > throughDate) return;
+          const employee = employees.find((item) => item.id === employeeId);
+          if (!employee) return;
+          const earnings = computeEarnings(entry, employee);
+          ytdGross += earnings.gross;
+        });
+        return { ytdGross };
+      }
+
+      function buildRunSummary(run) {
+        return getRunEntries(run).reduce(
+          (acc, entry) => {
+            const employee = getEmployee(entry);
+            if (!employee) return acc;
+            const earnings = computeEarnings(entry, employee);
+            const { ytdGross } = sumYearToDate(employee.id, entry.end_date);
+            const taxes = computeTaxes(earnings.gross, employee, ytdGross - earnings.gross);
+            acc.totalHours += earnings.totalHours;
+            acc.totalGross += earnings.gross;
+            acc.totalNet += Math.max(0, earnings.gross - taxes.totalEmployeeTaxes);
+            acc.employeeCount += 1;
+            return acc;
+          },
+          { totalHours: 0, totalGross: 0, totalNet: 0, employeeCount: 0 }
+        );
+      }
+
+      function renderRunOptions() {
+        runSelect.innerHTML = '';
+        payrollRuns.forEach((run) => {
+          const option = document.createElement('option');
+          option.value = run.id;
+          option.textContent = run.label || `${run.start_date} → ${run.end_date}`;
+          runSelect.appendChild(option);
+        });
+        if (!payrollRuns.length) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No payroll runs available';
+          runSelect.appendChild(option);
+        }
+      }
+
+      function renderRegister(run) {
+        registerBody.innerHTML = '';
+        if (!run) {
+          registerSummary.style.display = 'none';
+          const row = document.createElement('tr');
+          row.innerHTML = `<td colspan="6" class="muted">No payroll run selected.</td>`;
+          registerBody.appendChild(row);
+          return;
+        }
+        const entries = getRunEntries(run);
+        const summary = buildRunSummary(run);
+        registerSummary.style.display = 'block';
+        summaryEmployees.textContent = summary.employeeCount;
+        summaryHours.textContent = summary.totalHours.toFixed(2);
+        summaryGross.textContent = formatCurrency(summary.totalGross);
+        summaryNet.textContent = formatCurrency(summary.totalNet);
+
+        entries.forEach((entry) => {
+          const employee = getEmployee(entry);
+          if (!employee) return;
+          const earnings = computeEarnings(entry, employee);
+          const { ytdGross } = sumYearToDate(employee.id, entry.end_date);
+          const taxes = computeTaxes(earnings.gross, employee, ytdGross - earnings.gross);
+          const netPay = Math.max(0, earnings.gross - taxes.totalEmployeeTaxes);
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>
+              <strong>${employee.name || 'Employee'}</strong>
+              <div class="muted" style="margin-top: 4px;">${employee.department || 'No department'}</div>
+            </td>
+            <td>${formatPaymentDate(entry.paid_at || entry.end_date)}</td>
+            <td class="right">${earnings.totalHours.toFixed(2)}</td>
+            <td class="right">${formatCurrency(earnings.gross)}</td>
+            <td class="right">${formatCurrency(taxes.totalEmployeeTaxes)}</td>
+            <td class="right">${formatCurrency(netPay)}</td>
+          `;
+          registerBody.appendChild(row);
+        });
+
+        if (!entries.length) {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td colspan="6" class="muted">No paid entries for this run.</td>`;
+          registerBody.appendChild(row);
+        }
+      }
+
+      async function loadData() {
+        setStatus('Loading payroll runs...');
+        try {
+          const [employeesRes, payTypesRes, entriesRes, runsRes, schedulesRes] = await Promise.all([
+            fetch('/api/employees'),
+            fetch('/api/pay-types'),
+            fetch('/api/time-entries?status=paid'),
+            fetch('/api/payroll-runs'),
+            fetch('/api/pay-schedules')
+          ]);
+          const employeesPayload = await employeesRes.json();
+          const payTypesPayload = await payTypesRes.json();
+          const entriesPayload = await entriesRes.json();
+          const runsPayload = await runsRes.json();
+          const schedulesPayload = await schedulesRes.json();
+          employees = employeesPayload.employees || [];
+          payTypes = payTypesPayload.payTypes || [];
+          paidEntries = entriesPayload.entries || [];
+          payrollRuns = runsPayload.runs || [];
+          paySchedules = schedulesPayload.paySchedules || [];
+          if (!payTypes.length) {
+            payTypes = [
+              { id: 'regular', name: 'Regular' },
+              { id: 'vacation', name: 'Vacation' },
+              { id: 'holiday', name: 'Holiday' }
+            ];
+          }
+          renderRunOptions();
+          selectedRun = payrollRuns[0] || null;
+          if (selectedRun) {
+            runSelect.value = selectedRun.id;
+          }
+          renderRegister(selectedRun);
+          setStatus(payrollRuns.length ? 'Ready to print the selected payroll register.' : 'No payroll runs to print.');
+        } catch (error) {
+          console.error('Failed to load payroll runs', error);
+          setNotice('Unable to load payroll runs.');
+        }
+      }
+
+      runSelect.addEventListener('change', () => {
+        const runId = runSelect.value;
+        selectedRun = payrollRuns.find((item) => item.id === runId) || null;
+        renderRegister(selectedRun);
+      });
+
+      printRegisterBtn.addEventListener('click', () => {
+        setNotice('');
+        if (!selectedRun) {
+          setNotice('Select a payroll run before printing.');
+          return;
+        }
+        const note = printNotes.value.trim();
+        if (note) {
+          document.title = `${note} · Payroll Register`;
+        }
+        window.print();
+      });
+
+      loadData();
     </script>
   </body>
 </html>
