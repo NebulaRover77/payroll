@@ -78,6 +78,7 @@ async function loadStateFromApi() {
     id: run.id ?? crypto.randomUUID(),
     start: run.start ?? run.period_start ?? run.start_date ?? '',
     end: run.end ?? run.period_end ?? run.end_date ?? '',
+    paymentDate: run.paymentDate ?? run.payment_date ?? run.pay_date ?? '',
     status: run.status ?? 'processed',
     headcount: run.headcount ?? run.entries?.length ?? 0,
     netTotal: Number(run.netTotal ?? run.total_net ?? run.total_gross ?? 0),
@@ -229,7 +230,11 @@ function computeDeductions(gross, taxProfile) {
   };
 }
 
-function runPayroll({ start, end, notes }) {
+function runPayroll({ start, end, notes, paymentDate }) {
+  if (!paymentDate) {
+    alert('Payment date is required to run payroll.');
+    return;
+  }
   const periodStart = new Date(start);
   const periodEnd = new Date(end);
 
@@ -239,6 +244,7 @@ function runPayroll({ start, end, notes }) {
     start,
     end,
     notes,
+    paymentDate,
     createdAt: new Date().toISOString(),
     entries: [],
   };
@@ -289,6 +295,7 @@ function renderPayroll(filter = 'all') {
       const row = document.createElement('tr');
 
       row.innerHTML = `
+        <td>${formatDateTime(run.paymentDate)}</td>
         <td>${run.start} → ${run.end}</td>
         <td><span class="badge ${run.status}">${run.status}</span></td>
         <td>${run.headcount}</td>
@@ -510,7 +517,12 @@ function attachHandlers() {
   $('payroll-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const form = new FormData(e.target);
-    runPayroll({ start: form.get('start'), end: form.get('end'), notes: form.get('notes') });
+    runPayroll({
+      start: form.get('start'),
+      end: form.get('end'),
+      notes: form.get('notes'),
+      paymentDate: form.get('paymentDate'),
+    });
     e.target.reset();
   });
 
