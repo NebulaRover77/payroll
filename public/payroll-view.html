@@ -86,6 +86,7 @@
                     <th class="right">Total hours</th>
                     <th class="right">Gross pay</th>
                     <th class="right">Net pay</th>
+                    <th>Payment date</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -383,6 +384,20 @@
         return `$${Number(value || 0).toFixed(2)}`;
       }
 
+      function formatPaymentDate(value) {
+        if (!value) return '—';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      function formatDateInput(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '';
+        return parsed.toISOString().slice(0, 10);
+      }
+
       function totalHours(hours) {
         return payTypes.reduce((sum, type) => sum + Number(hours?.[type.id] || 0), 0);
       }
@@ -645,6 +660,8 @@
           const { ytdGross } = sumYearToDate(employee.id, entry.end_date);
           const taxes = computeTaxes(earnings.gross, employee, ytdGross - earnings.gross);
           const netPay = Math.max(0, earnings.gross - taxes.totalEmployeeTaxes);
+          const paymentDate = formatPaymentDate(entry.paid_at || entry.end_date);
+          const paymentDateInput = formatDateInput(entry.paid_at || entry.end_date);
 
           const row = document.createElement('tr');
           row.innerHTML = `
@@ -655,6 +672,13 @@
             <td class="right">${earnings.totalHours.toFixed(2)}</td>
             <td class="right">${formatCurrency(earnings.gross)}</td>
             <td class="right">${formatCurrency(netPay)}</td>
+            <td>
+              <div class="flex" style="gap: 8px; align-items: center;">
+                <input class="input small" type="date" value="${paymentDateInput}" data-payment-input="${entry.id}" />
+                <button class="btn ghost small" data-payment-save="${entry.id}">Update</button>
+              </div>
+              <div class="muted" style="margin-top: 4px;">${paymentDate}</div>
+            </td>
             <td class="right">
               <button class="btn ghost small" data-stub-id="${entry.id}">Preview pay stub</button>
             </td>
@@ -664,7 +688,7 @@
 
         if (!entries.length) {
           const row = document.createElement('tr');
-          row.innerHTML = `<td colspan="5" class="muted">No paid entries for this run.</td>`;
+          row.innerHTML = `<td colspan="6" class="muted">No paid entries for this run.</td>`;
           detailsBody.appendChild(row);
         }
       }
@@ -838,6 +862,39 @@
         const btn = event.target.closest('[data-stub-id]');
         if (!btn) return;
         openStub(btn.dataset.stubId);
+      });
+
+      detailsBody.addEventListener('click', async (event) => {
+        const btn = event.target.closest('[data-payment-save]');
+        if (!btn) return;
+        if (!selectedRun) return;
+        const entryId = btn.dataset.paymentSave;
+        const input = detailsBody.querySelector(`[data-payment-input="${entryId}"]`);
+        if (!input) return;
+        const dateValue = input.value;
+        if (!dateValue) {
+          runActionStatus.textContent = 'Choose a payment date.';
+          return;
+        }
+        runActionStatus.textContent = 'Updating payment date...';
+        try {
+          const response = await fetch('/api/time-entries/payment-date', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entry_id: entryId, paid_at: dateValue })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Unable to update payment date');
+          const updatedEntry = payload.entry;
+          const entryIndex = paidEntries.findIndex((item) => item.id === updatedEntry.id);
+          if (entryIndex >= 0) {
+            paidEntries[entryIndex] = updatedEntry;
+          }
+          renderDetails(selectedRun);
+          runActionStatus.textContent = 'Payment date updated.';
+        } catch (error) {
+          runActionStatus.textContent = error.message || 'Unable to update.';
+        }
       });
 
       saveLabelBtn.addEventListener('click', async () => {

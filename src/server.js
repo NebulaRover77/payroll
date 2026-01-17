@@ -576,6 +576,32 @@ function handleApi(req, res) {
       .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/time-entries/payment-date') {
+    return parseBody(req)
+      .then((body) => {
+        const entryId = (body.entry_id || '').trim();
+        const paidAt = (body.paid_at || '').trim();
+        if (!entryId) return sendJson(res, 400, { error: 'Entry ID is required' });
+        if (!paidAt) return sendJson(res, 400, { error: 'Payment date is required' });
+        const parsed = new Date(paidAt);
+        if (Number.isNaN(parsed.getTime())) {
+          return sendJson(res, 400, { error: 'Payment date is invalid' });
+        }
+        const store = readStore();
+        const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+        const entry = entries.find((item) => item.id === entryId);
+        if (!entry) return sendJson(res, 404, { error: 'Time entry not found' });
+        if (entry.status !== 'paid') {
+          return sendJson(res, 400, { error: 'Only paid entries can update payment dates' });
+        }
+        entry.paid_at = parsed.toISOString();
+        saveStore({ ...store, time_entries: entries });
+        audit('user', 'timesheet.payment_date.update', { entryId });
+        return sendJson(res, 200, { entry });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/payroll-runs') {
     const store = readStore();
     const payrollRuns = Array.isArray(store.payroll_runs) ? store.payroll_runs : [];
