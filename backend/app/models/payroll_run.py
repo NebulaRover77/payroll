@@ -13,4 +13,6 @@ class PayrollRun(Base):
     period_end = Column(Date, nullable=False)
     total_gross = Column(Numeric(scale=2), nullable=False)
     status = Column(String(50), nullable=False, default="draft")
+    void_reason = Column(String(255), nullable=True)
+    voided_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
