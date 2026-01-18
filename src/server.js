@@ -26,7 +26,8 @@ const defaultStore = {
   time_entries: [],
   pto_requests: [],
   pay_types: DEFAULT_PAY_TYPES,
-  payroll_runs: []
+  payroll_runs: [],
+  payroll_history: []
 };
 const ZIP_REGEX = /^\d{5}(-\d{4})?$/;
 const PAY_CADENCE_OPTIONS = ['weekly', 'biweekly', 'semimonthly', 'monthly'];
@@ -675,6 +676,147 @@ function handleApi(req, res) {
         saveStore({ ...store, payroll_runs: nextRuns, time_entries: entries });
         audit('user', 'payroll.delete', { runId, reverted });
         return sendJson(res, 200, { runs: nextRuns });
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/payroll-history') {
+    const store = readStore();
+    const history = Array.isArray(store.payroll_history) ? store.payroll_history : [];
+    const employeeId = url.searchParams.get('employee_id');
+    const filtered = employeeId ? history.filter((entry) => entry.employee_id === employeeId) : history;
+    return sendJson(res, 200, { entries: filtered });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/payroll-history') {
+    return parseBody(req)
+      .then((body) => {
+        const employeeId = (body.employee_id || '').trim();
+        const entryType = (body.entry_type || '').trim().toLowerCase();
+        if (!employeeId) return sendJson(res, 400, { error: 'Employee ID is required' });
+        if (!['check', 'quarter'].includes(entryType)) {
+          return sendJson(res, 400, { error: 'Entry type must be check or quarter' });
+        }
+
+        const hoursPayload = body.hours && typeof body.hours === 'object' ? body.hours : {};
+        const payLinesPayload = body.pay_lines && typeof body.pay_lines === 'object' ? body.pay_lines : {};
+        const SS_RATE = 0.062;
+        const MEDICARE_RATE = 0.0145;
+        const FIT_RATE = 0.1;
+        const FUTA_RATE = 0.006;
+        const SUTA_RATE = 0.027;
+
+        let checkDate = '';
+        let periodStart = '';
+        let periodEnd = '';
+        let year = null;
+        let quarter = null;
+
+        if (entryType === 'check') {
+          checkDate = (body.check_date || '').trim();
+          periodStart = (body.period_start || '').trim();
+          periodEnd = (body.period_end || '').trim();
+          if (!checkDate) return sendJson(res, 400, { error: 'Check date is required' });
+          if (!periodStart || !periodEnd) {
+            return sendJson(res, 400, { error: 'Period start and end dates are required' });
+          }
+          const parsed = new Date(checkDate);
+          if (Number.isNaN(parsed.getTime())) {
+            return sendJson(res, 400, { error: 'Check date is invalid' });
+          }
+          checkDate = parsed.toISOString();
+          const parsedStart = new Date(periodStart);
+          const parsedEnd = new Date(periodEnd);
+          if (Number.isNaN(parsedStart.getTime()) || Number.isNaN(parsedEnd.getTime())) {
+            return sendJson(res, 400, { error: 'Period dates are invalid' });
+          }
+          if (parsedStart > parsedEnd) {
+            return sendJson(res, 400, { error: 'Period start must be before period end' });
+          }
+          periodStart = parsedStart.toISOString();
+          periodEnd = parsedEnd.toISOString();
+        } else {
+          year = Number(body.year);
+          quarter = Number(body.quarter);
+          if (!Number.isFinite(year) || year < 1900) {
+            return sendJson(res, 400, { error: 'Year is required for quarterly entries' });
+          }
+          if (![1, 2, 3, 4].includes(quarter)) {
+            return sendJson(res, 400, { error: 'Quarter must be 1, 2, 3, or 4' });
+          }
+        }
+
+        const store = readStore();
+        const employees = Array.isArray(store.employees) ? store.employees : [];
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) return sendJson(res, 404, { error: 'Employee not found' });
+
+        const history = Array.isArray(store.payroll_history) ? store.payroll_history : [];
+        const payTypes = getPayTypes(store);
+        const hours = {};
+        const payLines = {};
+        let gross = 0;
+        for (const type of payTypes) {
+          const value = Number(hoursPayload[type.id] ?? payLinesPayload[type.id]?.hours ?? 0);
+          const rate = Number(payLinesPayload[type.id]?.rate ?? 0);
+          if (!Number.isFinite(value) || value < 0) {
+            return sendJson(res, 400, { error: `Hours for ${type.name} must be a valid number` });
+          }
+          if (!Number.isFinite(rate) || rate < 0) {
+            return sendJson(res, 400, { error: `Rate for ${type.name} must be a valid number` });
+          }
+          const roundedHours = Math.round(value * 100) / 100;
+          const roundedRate = Math.round(rate * 100) / 100;
+          const amount = Math.round(roundedHours * roundedRate * 100) / 100;
+          hours[type.id] = roundedHours;
+          payLines[type.id] = { hours: roundedHours, rate: roundedRate, amount };
+          gross += amount;
+        }
+        gross = Math.round(gross * 100) / 100;
+        const fit = Math.round(gross * FIT_RATE * 100) / 100;
+        const employeeSS = Math.round(gross * SS_RATE * 100) / 100;
+        const employeeMedicare = Math.round(gross * MEDICARE_RATE * 100) / 100;
+        const employeeTaxes = Math.round((fit + employeeSS + employeeMedicare) * 100) / 100;
+        const net = Math.round((gross - employeeTaxes) * 100) / 100;
+        const employerSS = Math.round(gross * SS_RATE * 100) / 100;
+        const employerMedicare = Math.round(gross * MEDICARE_RATE * 100) / 100;
+        const futa = Math.round(gross * FUTA_RATE * 100) / 100;
+        const suta = Math.round(gross * SUTA_RATE * 100) / 100;
+        const employerTaxes = Math.round((employerSS + employerMedicare + futa + suta) * 100) / 100;
+        const entry = {
+          id: randomUUID(),
+          employee_id: employeeId,
+          entry_type: entryType,
+          gross,
+          net,
+          taxes: employeeTaxes,
+          hours,
+          pay_lines: payLines,
+          fit,
+          employee_ss: employeeSS,
+          employee_medicare: employeeMedicare,
+          employer_ss: employerSS,
+          employer_medicare: employerMedicare,
+          futa,
+          suta,
+          employer_taxes: employerTaxes,
+          notes: (body.notes || '').trim(),
+          created_at: new Date().toISOString()
+        };
+
+        if (entryType === 'check') {
+          entry.check_date = checkDate;
+          entry.period_start = periodStart;
+          entry.period_end = periodEnd;
+        } else {
+          entry.year = year;
+          entry.quarter = quarter;
+        }
+
+        history.unshift(entry);
+        saveStore({ ...store, payroll_history: history });
+        audit('user', 'payroll.history.create', { employeeId, entryType });
+        return sendJson(res, 200, { entry });
       })
       .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
   }
