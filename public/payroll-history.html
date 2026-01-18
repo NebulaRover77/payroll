@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enter Payroll History | Nebula Payroll</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="subtle-bg">
+    <header class="app-header">
+      <div class="app-header__brand">Nebula Payroll</div>
+      <div class="app-header__actions">
+        <button id="logoutBtn" class="btn ghost small">Log Out</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Primary" id="sidebar" data-sidebar></nav>
+
+      <main class="workspace">
+        <section class="workspace__heading">
+          <h1>Enter Payroll History</h1>
+          <p class="lead">Capture prior payroll activity by employee using check-level or quarterly totals.</p>
+        </section>
+
+        <section class="panel">
+          <div class="flex" style="justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="margin: 0 0 4px;">History entries</h2>
+              <p class="muted" style="margin: 0;">Add payroll history per employee by check or quarterly aggregate.</p>
+            </div>
+            <div class="actions">
+              <a class="btn ghost small" href="/payroll-view.html">View payroll</a>
+            </div>
+          </div>
+
+          <form id="payrollHistoryForm" class="form-card" style="margin-top: 16px;">
+            <div class="form-grid">
+              <div>
+                <label for="historyEmployee">Employee</label>
+                <select id="historyEmployee" required></select>
+              </div>
+              <div>
+                <label for="historyType">Entry type</label>
+                <select id="historyType" required>
+                  <option value="check">Check</option>
+                  <option value="quarter">Quarter aggregate</option>
+                </select>
+              </div>
+              <div id="historyCheckFields">
+                <label for="historyCheckDate">Check date</label>
+                <input id="historyCheckDate" type="date" />
+              </div>
+              <div id="historyPeriodStartFields">
+                <label for="historyPeriodStart">Period start</label>
+                <input id="historyPeriodStart" type="date" />
+              </div>
+              <div id="historyPeriodEndFields">
+                <label for="historyPeriodEnd">Period end</label>
+                <input id="historyPeriodEnd" type="date" />
+              </div>
+              <div id="historyQuarterFields">
+                <label for="historyYear">Year</label>
+                <input id="historyYear" type="number" min="1900" max="2100" placeholder="2024" />
+              </div>
+              <div id="historyQuarterSelectFields">
+                <label for="historyQuarter">Quarter</label>
+                <select id="historyQuarter">
+                  <option value="1">Q1</option>
+                  <option value="2">Q2</option>
+                  <option value="3">Q3</option>
+                  <option value="4">Q4</option>
+                </select>
+              </div>
+              <div>
+                <label for="historyNotes">Notes</label>
+                <input id="historyNotes" placeholder="Optional notes" />
+              </div>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <h3 style="margin: 0 0 8px;">Hours by category</h3>
+              <p class="muted" style="margin: 0 0 12px;">Track historical hours by pay type for each employee entry.</p>
+              <div class="form-grid" id="historyHoursGrid"></div>
+            </div>
+
+            <div class="summary-card" style="margin-top: 16px;">
+              <div>
+                <p class="muted">Gross pay</p>
+                <p id="historyGrossTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">FIT</p>
+                <p id="historyFitTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">Employee Social Security</p>
+                <p id="historyEmployeeSSTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">Employee Medicare</p>
+                <p id="historyEmployeeMedicareTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">Net pay</p>
+                <p id="historyNetTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">Employer Social Security</p>
+                <p id="historyEmployerSSTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">Employer Medicare</p>
+                <p id="historyEmployerMedicareTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">FUTA</p>
+                <p id="historyFutaTotal">$0.00</p>
+              </div>
+              <div>
+                <p class="muted">SUTA</p>
+                <p id="historySutaTotal">$0.00</p>
+              </div>
+            </div>
+
+            <div class="actions" style="margin-top: 12px;">
+              <button class="btn primary" type="submit">Add history entry</button>
+              <span class="muted" id="historyStatus"></span>
+            </div>
+          </form>
+
+          <div id="historyStatusBanner" class="muted" style="margin-top: 12px;"></div>
+
+          <div style="overflow-x: auto; margin-top: 16px;">
+            <table class="table" aria-label="Payroll history entries">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Type</th>
+                  <th>Period</th>
+                  <th>Check date</th>
+                  <th class="right">Gross</th>
+                  <th class="right">Employee taxes</th>
+                  <th class="right">Net</th>
+                  <th class="right">Hours</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/sidebar.js"></script>
+    <script>
+      const token = localStorage.getItem('payrollAuthToken');
+      if (!token) {
+        window.location.href = '/';
+      }
+
+      document.getElementById('logoutBtn').addEventListener('click', () => {
+        localStorage.removeItem('payrollAuthToken');
+        window.location.href = '/';
+      });
+
+      const historyBody = document.getElementById('historyBody');
+      const historyForm = document.getElementById('payrollHistoryForm');
+      const historyEmployee = document.getElementById('historyEmployee');
+      const historyType = document.getElementById('historyType');
+      const historyCheckDate = document.getElementById('historyCheckDate');
+      const historyPeriodStart = document.getElementById('historyPeriodStart');
+      const historyPeriodEnd = document.getElementById('historyPeriodEnd');
+      const historyYear = document.getElementById('historyYear');
+      const historyQuarter = document.getElementById('historyQuarter');
+      const historyNotes = document.getElementById('historyNotes');
+      const historyStatus = document.getElementById('historyStatus');
+      const historyStatusBanner = document.getElementById('historyStatusBanner');
+      const historySubmit = historyForm.querySelector('button[type="submit"]');
+      const historyCheckFields = document.getElementById('historyCheckFields');
+      const historyPeriodStartFields = document.getElementById('historyPeriodStartFields');
+      const historyPeriodEndFields = document.getElementById('historyPeriodEndFields');
+      const historyQuarterFields = document.getElementById('historyQuarterFields');
+      const historyQuarterSelectFields = document.getElementById('historyQuarterSelectFields');
+      const historyHoursGrid = document.getElementById('historyHoursGrid');
+      const historyGrossTotal = document.getElementById('historyGrossTotal');
+      const historyFitTotal = document.getElementById('historyFitTotal');
+      const historyEmployeeSSTotal = document.getElementById('historyEmployeeSSTotal');
+      const historyEmployeeMedicareTotal = document.getElementById('historyEmployeeMedicareTotal');
+      const historyNetTotal = document.getElementById('historyNetTotal');
+      const historyEmployerSSTotal = document.getElementById('historyEmployerSSTotal');
+      const historyEmployerMedicareTotal = document.getElementById('historyEmployerMedicareTotal');
+      const historyFutaTotal = document.getElementById('historyFutaTotal');
+      const historySutaTotal = document.getElementById('historySutaTotal');
+
+      let employees = [];
+      let payrollHistory = [];
+      let payTypes = [];
+      const SS_RATE = 0.062;
+      const MEDICARE_RATE = 0.0145;
+      const FIT_RATE = 0.1;
+      const FUTA_RATE = 0.006;
+      const SUTA_RATE = 0.027;
+
+      function formatCurrency(value) {
+        return `$${Number(value || 0).toFixed(2)}`;
+      }
+
+      function formatPaymentDate(value) {
+        if (!value) return '—';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      function formatHistoryPeriod(entry) {
+        if (entry.entry_type === 'quarter') {
+          return `Q${entry.quarter} ${entry.year}`;
+        }
+        const start = entry.period_start ? entry.period_start.slice(0, 10) : '—';
+        const end = entry.period_end ? entry.period_end.slice(0, 10) : '—';
+        return `${start} → ${end}`;
+      }
+
+      function formatCheckDate(entry) {
+        if (entry.entry_type !== 'check') return '—';
+        return formatPaymentDate(entry.check_date);
+      }
+
+      function totalHours(hours) {
+        return payTypes.reduce((sum, type) => sum + Number(hours?.[type.id] || 0), 0);
+      }
+
+      function renderHistoryEmployeeOptions() {
+        if (!employees.length) {
+          historyEmployee.innerHTML = '<option value="">No employees available</option>';
+          historyEmployee.disabled = true;
+          historySubmit.disabled = true;
+          return;
+        }
+        historyEmployee.disabled = false;
+        historySubmit.disabled = false;
+        historyEmployee.innerHTML = employees
+          .slice()
+          .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }))
+          .map((employee) => `<option value="${employee.id}">${employee.name}</option>`)
+          .join('');
+      }
+
+      function renderHistoryHoursGrid() {
+        historyHoursGrid.innerHTML = '';
+        if (!payTypes.length) {
+          historyHoursGrid.innerHTML = '<div class="muted">No pay types configured.</div>';
+          return;
+        }
+        payTypes.forEach((type) => {
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = `
+            <label for="historyHours-${type.id}">${type.name} hours</label>
+            <input id="historyHours-${type.id}" type="number" min="0" step="0.01" value="0" data-hours-type="${type.id}" />
+            <label for="historyRate-${type.id}" style="margin-top: 8px;">${type.name} rate</label>
+            <input id="historyRate-${type.id}" type="number" min="0" step="0.01" value="0" data-rate-type="${type.id}" />
+          `;
+          historyHoursGrid.appendChild(wrapper);
+        });
+        historyHoursGrid.querySelectorAll('input').forEach((input) => {
+          input.addEventListener('input', () => updateTotals());
+        });
+        updateTotals();
+      }
+
+      function setHistoryFieldVisibility() {
+        const isCheck = historyType.value === 'check';
+        historyCheckFields.style.display = isCheck ? 'block' : 'none';
+        historyPeriodStartFields.style.display = isCheck ? 'block' : 'none';
+        historyPeriodEndFields.style.display = isCheck ? 'block' : 'none';
+        historyQuarterFields.style.display = isCheck ? 'none' : 'block';
+        historyQuarterSelectFields.style.display = isCheck ? 'none' : 'block';
+        historyCheckDate.required = isCheck;
+        historyPeriodStart.required = isCheck;
+        historyPeriodEnd.required = isCheck;
+        historyYear.required = !isCheck;
+        historyQuarter.required = !isCheck;
+      }
+
+      function collectPayLines() {
+        const lines = {};
+        payTypes.forEach((type) => {
+          const hoursInput = historyHoursGrid.querySelector(`[data-hours-type="${type.id}"]`);
+          const rateInput = historyHoursGrid.querySelector(`[data-rate-type="${type.id}"]`);
+          const hours = Number(hoursInput?.value || 0);
+          const rate = Number(rateInput?.value || 0);
+          const safeHours = Number.isFinite(hours) ? hours : 0;
+          const safeRate = Number.isFinite(rate) ? rate : 0;
+          lines[type.id] = {
+            hours: Math.max(0, Math.round(safeHours * 100) / 100),
+            rate: Math.max(0, Math.round(safeRate * 100) / 100)
+          };
+          lines[type.id].amount = Math.round(lines[type.id].hours * lines[type.id].rate * 100) / 100;
+        });
+        return lines;
+      }
+
+      function computeTotals(lines) {
+        const gross = Object.values(lines).reduce((sum, line) => sum + (line.amount || 0), 0);
+        const fit = gross * FIT_RATE;
+        const employeeSS = gross * SS_RATE;
+        const employeeMedicare = gross * MEDICARE_RATE;
+        const net = gross - fit - employeeSS - employeeMedicare;
+        const employerSS = gross * SS_RATE;
+        const employerMedicare = gross * MEDICARE_RATE;
+        const futa = gross * FUTA_RATE;
+        const suta = gross * SUTA_RATE;
+        return {
+          gross,
+          fit,
+          employeeSS,
+          employeeMedicare,
+          net,
+          employerSS,
+          employerMedicare,
+          futa,
+          suta
+        };
+      }
+
+      function updateTotals() {
+        const lines = collectPayLines();
+        const totals = computeTotals(lines);
+        historyGrossTotal.textContent = formatCurrency(totals.gross);
+        historyFitTotal.textContent = formatCurrency(totals.fit);
+        historyEmployeeSSTotal.textContent = formatCurrency(totals.employeeSS);
+        historyEmployeeMedicareTotal.textContent = formatCurrency(totals.employeeMedicare);
+        historyNetTotal.textContent = formatCurrency(totals.net);
+        historyEmployerSSTotal.textContent = formatCurrency(totals.employerSS);
+        historyEmployerMedicareTotal.textContent = formatCurrency(totals.employerMedicare);
+        historyFutaTotal.textContent = formatCurrency(totals.futa);
+        historySutaTotal.textContent = formatCurrency(totals.suta);
+      }
+
+      function renderHistory() {
+        historyBody.innerHTML = '';
+        payrollHistory.forEach((entry) => {
+          const employee = employees.find((item) => item.id === entry.employee_id);
+          const typeLabel = entry.entry_type === 'check' ? 'Check' : 'Quarter aggregate';
+          const hoursTotal = totalHours(entry.hours);
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${employee?.name || 'Former employee'}</td>
+            <td>${typeLabel}</td>
+            <td>${formatHistoryPeriod(entry)}</td>
+            <td>${formatCheckDate(entry)}</td>
+            <td class="right">${formatCurrency(entry.gross)}</td>
+            <td class="right">${formatCurrency(entry.taxes)}</td>
+            <td class="right">${formatCurrency(entry.net)}</td>
+            <td class="right">${hoursTotal ? hoursTotal.toFixed(2) : '—'}</td>
+            <td>${entry.notes || '—'}</td>
+          `;
+          historyBody.appendChild(row);
+        });
+
+        if (!payrollHistory.length) {
+          const row = document.createElement('tr');
+          row.innerHTML = '<td class="muted" colspan="9">No payroll history entries yet.</td>';
+          historyBody.appendChild(row);
+        }
+      }
+
+      function setHistoryDefaults() {
+        const now = new Date();
+        historyCheckDate.value = now.toISOString().slice(0, 10);
+        historyPeriodStart.value = now.toISOString().slice(0, 10);
+        historyPeriodEnd.value = now.toISOString().slice(0, 10);
+        historyYear.value = String(now.getFullYear());
+        historyQuarter.value = String(Math.floor(now.getMonth() / 3) + 1);
+        setHistoryFieldVisibility();
+      }
+
+      async function loadData() {
+        historyStatusBanner.textContent = 'Loading payroll history...';
+        try {
+          const [employeesRes, historyRes, payTypesRes] = await Promise.all([
+            fetch('/api/employees'),
+            fetch('/api/payroll-history'),
+            fetch('/api/pay-types')
+          ]);
+          const employeesPayload = await employeesRes.json();
+          const historyPayload = await historyRes.json();
+          const payTypesPayload = await payTypesRes.json();
+          employees = employeesPayload.employees || [];
+          payrollHistory = historyPayload.entries || [];
+          payTypes = payTypesPayload.payTypes || [];
+          renderHistoryEmployeeOptions();
+          renderHistoryHoursGrid();
+          renderHistory();
+          historyStatusBanner.textContent = payrollHistory.length ? 'Review or add entries below.' : 'No payroll history entries yet.';
+        } catch (error) {
+          console.error('Failed to load payroll history', error);
+          historyStatusBanner.textContent = 'Unable to load payroll history.';
+        }
+      }
+
+      historyType.addEventListener('change', () => {
+        setHistoryFieldVisibility();
+      });
+
+      historyForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (historyEmployee.disabled) return;
+        historyStatus.textContent = 'Saving...';
+        const payLines = collectPayLines();
+        const hours = Object.fromEntries(
+          Object.entries(payLines).map(([key, value]) => [key, value.hours])
+        );
+        const entryType = historyType.value || 'check';
+        const payload = {
+          employee_id: historyEmployee.value,
+          entry_type: entryType,
+          pay_lines: payLines,
+          hours,
+          notes: historyNotes.value
+        };
+
+        if (entryType === 'check') {
+          payload.check_date = historyCheckDate.value;
+          payload.period_start = historyPeriodStart.value;
+          payload.period_end = historyPeriodEnd.value;
+        } else {
+          payload.year = Number(historyYear.value);
+          payload.quarter = Number(historyQuarter.value);
+        }
+
+        try {
+          const response = await fetch('/api/payroll-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Unable to save payroll history entry');
+          payrollHistory.unshift(data.entry);
+          renderHistory();
+          historyStatus.textContent = 'Saved.';
+          historyStatusBanner.textContent = 'History entry added.';
+          historyNotes.value = '';
+          setHistoryDefaults();
+          historyHoursGrid.querySelectorAll('[data-hours-type]').forEach((input) => {
+            input.value = '0';
+          });
+          historyHoursGrid.querySelectorAll('[data-rate-type]').forEach((input) => {
+            input.value = '0';
+          });
+          updateTotals();
+        } catch (error) {
+          historyStatus.textContent = error.message || 'Unable to save history entry.';
+        }
+      });
+
+      setHistoryDefaults();
+      loadData();
+    </script>
+  </body>
+</html>

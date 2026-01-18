@@ -398,6 +398,7 @@
         return parsed.toISOString().slice(0, 10);
       }
 
+
       function totalHours(hours) {
         return payTypes.reduce((sum, type) => sum + Number(hours?.[type.id] || 0), 0);
       }
