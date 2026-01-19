@@ -10,7 +10,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
+      - payroll_data:/app/data
 
   api:
     build: ./backend
@@ -70,3 +70,4 @@ services:
 
 volumes:
   pg_data:
+  payroll_data:
