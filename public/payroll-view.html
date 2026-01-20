@@ -323,7 +323,10 @@
             <h3 id="stubTitle" style="margin: 0;">Pay stub preview</h3>
             <p class="muted" id="stubSubtitle" style="margin: 4px 0 0;"></p>
           </div>
-          <button class="btn ghost small" type="button" data-close>Close</button>
+          <div class="modal__actions">
+            <button class="btn ghost small" type="button" id="stubPrint">Print</button>
+            <button class="btn ghost small" type="button" data-close>Close</button>
+          </div>
         </div>
         <div id="stubContent"></div>
       </div>
@@ -354,6 +357,7 @@
       const stubModal = document.getElementById('stubModal');
       const stubContent = document.getElementById('stubContent');
       const stubSubtitle = document.getElementById('stubSubtitle');
+      const stubPrintBtn = document.getElementById('stubPrint');
 
       const SS_RATE = 0.062;
       const MEDICARE_RATE = 0.0145;
@@ -884,6 +888,7 @@
       function closeModal() {
         stubModal.classList.remove('is-open');
         stubModal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('is-printing');
       }
 
       async function loadData() {
@@ -1017,6 +1022,16 @@
         } catch (error) {
           runActionStatus.textContent = error.message || 'Unable to delete.';
         }
+      });
+
+      stubPrintBtn.addEventListener('click', () => {
+        if (!stubModal.classList.contains('is-open')) return;
+        document.body.classList.add('is-printing');
+        window.print();
+      });
+
+      window.addEventListener('afterprint', () => {
+        document.body.classList.remove('is-printing');
       });
 
       stubModal.addEventListener('click', (event) => {
