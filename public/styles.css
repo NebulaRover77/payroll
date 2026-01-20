@@ -588,36 +588,6 @@ textarea:focus {
   font-weight: 600;
 }
 
-@media print {
-  body.is-printing * {
-    visibility: hidden;
-  }
-
-  body.is-printing #stubModal,
-  body.is-printing #stubModal * {
-    visibility: visible;
-  }
-
-  body.is-printing #stubModal {
-    position: static;
-    inset: auto;
-    background: none;
-    padding: 0;
-  }
-
-  body.is-printing .modal__backdrop,
-  body.is-printing .modal__header {
-    display: none;
-  }
-
-  body.is-printing .modal__content {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    box-shadow: none;
-  }
-}
 
 .table-grid {
   display: grid;

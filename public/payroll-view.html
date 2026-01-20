@@ -324,7 +324,7 @@
             <p class="muted" id="stubSubtitle" style="margin: 4px 0 0;"></p>
           </div>
           <div class="modal__actions">
-            <button class="btn ghost small" type="button" id="stubPrint">Print</button>
+            <button class="btn ghost small" type="button" id="stubDownload">Download PDF</button>
             <button class="btn ghost small" type="button" data-close>Close</button>
           </div>
         </div>
@@ -357,7 +357,7 @@
       const stubModal = document.getElementById('stubModal');
       const stubContent = document.getElementById('stubContent');
       const stubSubtitle = document.getElementById('stubSubtitle');
-      const stubPrintBtn = document.getElementById('stubPrint');
+      const stubDownloadBtn = document.getElementById('stubDownload');
 
       const SS_RATE = 0.062;
       const MEDICARE_RATE = 0.0145;
@@ -888,7 +888,37 @@
       function closeModal() {
         stubModal.classList.remove('is-open');
         stubModal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('is-printing');
+      }
+
+      function buildStubPrintDocument() {
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) return;
+        const title = stubSubtitle.textContent || 'Pay stub';
+        const stubHtml = stubContent.innerHTML;
+
+        printWindow.document.open();
+        printWindow.document.write(`
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>${title}</title>
+              <link rel="stylesheet" href="/styles.css" />
+              <style>
+                body { margin: 24px; }
+              </style>
+            </head>
+            <body>
+              <h2>${title}</h2>
+              ${stubHtml}
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.onafterprint = () => printWindow.close();
+        printWindow.print();
       }
 
       async function loadData() {
@@ -1024,14 +1054,9 @@
         }
       });
 
-      stubPrintBtn.addEventListener('click', () => {
+      stubDownloadBtn.addEventListener('click', () => {
         if (!stubModal.classList.contains('is-open')) return;
-        document.body.classList.add('is-printing');
-        window.print();
-      });
-
-      window.addEventListener('afterprint', () => {
-        document.body.classList.remove('is-printing');
+        buildStubPrintDocument();
       });
 
       stubModal.addEventListener('click', (event) => {
