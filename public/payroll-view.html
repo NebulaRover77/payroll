@@ -370,6 +370,8 @@
       let payrollRuns = [];
       let paidEntries = [];
       let selectedRun = null;
+      let companyInfo = {};
+      let companyAddress = null;
 
       function setNotice(message) {
         payrollNotice.style.display = message ? 'block' : 'none';
@@ -396,6 +398,22 @@
         const parsed = new Date(value);
         if (Number.isNaN(parsed.getTime())) return '';
         return parsed.toISOString().slice(0, 10);
+      }
+
+      function formatAddress(address) {
+        if (!address) return '—';
+        const parts = [
+          address.line1,
+          address.line2,
+          [address.city, address.state].filter(Boolean).join(', '),
+          address.postalCode
+        ].filter(Boolean);
+        return parts.join(' ');
+      }
+
+      function getCompanyAddress(addresses = []) {
+        if (!Array.isArray(addresses)) return null;
+        return addresses.find((address) => address.type === 'legal') || addresses[0] || null;
       }
 
 
@@ -705,97 +723,155 @@
         const netPay = Math.max(0, earnings.gross - taxes.totalEmployeeTaxes);
         const totalDeductions = taxes.totalEmployeeTaxes;
         const ytdNet = Math.max(0, ytd.ytdGross - (ytd.ytdTaxes.fit + ytd.ytdTaxes.ss + ytd.ytdTaxes.medicare));
+        const paymentDate = formatPaymentDate(entry.paid_at || entry.end_date);
+        const schedule = paySchedules.find((item) => item.name === employee?.pay_schedule);
+        const scheduleLabel = schedule
+          ? `${schedule.name}${schedule.cadence ? ` · ${schedule.cadence}` : ''}`
+          : (employee?.pay_schedule || '—');
+        const payRateLabel = employee?.pay_rate_type === 'period'
+          ? `${formatCurrency(earnings.rate)} per pay period`
+          : `${formatCurrency(earnings.rate)} per hour`;
+        const companyName = companyInfo?.legalName || 'Company';
+        const companyEin = companyInfo?.ein ? `EIN ${companyInfo.ein}` : '';
+        const companyPhone = companyInfo?.contact?.phone || '';
+        const companyEmail = companyInfo?.contact?.email || '';
+        const addressLine = formatAddress(companyAddress);
 
         stubSubtitle.textContent = `${employee.name || 'Employee'} • ${selectedRun.start_date} → ${selectedRun.end_date}`;
         stubContent.innerHTML = `
-          <div class="stub-grid">
-            <div>
-              <h4 style="margin-top: 0;">Earnings</h4>
-              <table class="table compact">
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th class="right">Hours</th>
-                    <th class="right">Rate</th>
-                    <th class="right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${earnings.earnings
-                    .map(
-                      (line) => `
-                        <tr>
-                          <td>${line.name}</td>
-                          <td class="right">${line.hours.toFixed(2)}</td>
-                          <td class="right">${formatCurrency(line.rate)}</td>
-                          <td class="right">${formatCurrency(line.amount)}</td>
-                        </tr>
-                      `
-                    )
-                    .join('')}
-                  <tr>
-                    <td colspan="3" class="right"><strong>Total earnings</strong></td>
-                    <td class="right"><strong>${formatCurrency(earnings.gross)}</strong></td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="paystub">
+            <div class="paystub__header">
+              <div class="paystub__brand">
+                <h4>${companyName}</h4>
+                <p class="muted">${addressLine}</p>
+                <p class="muted">${companyEin}</p>
+                <p class="muted">${[companyPhone, companyEmail].filter(Boolean).join(' • ')}</p>
+              </div>
+              <div class="paystub__meta">
+                <div>
+                  <span>Pay date</span>
+                  <strong>${paymentDate}</strong>
+                </div>
+                <div>
+                  <span>Pay period</span>
+                  <strong>${selectedRun.start_date} → ${selectedRun.end_date}</strong>
+                </div>
+                <div>
+                  <span>Pay schedule</span>
+                  <strong>${scheduleLabel}</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong>Paid</strong>
+                </div>
+              </div>
             </div>
-            <div>
-              <h4 style="margin-top: 0;">Taxes</h4>
-              <table class="table compact">
-                <thead>
-                  <tr>
-                    <th>Tax</th>
-                    <th class="right">This check</th>
-                    <th class="right">Year to date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Federal Income Tax</td>
-                    <td class="right">${formatCurrency(taxes.fit)}</td>
-                    <td class="right">${formatCurrency(ytd.ytdTaxes.fit)}</td>
-                  </tr>
-                  <tr>
-                    <td>Social Security</td>
-                    <td class="right">${formatCurrency(taxes.ss)}</td>
-                    <td class="right">${formatCurrency(ytd.ytdTaxes.ss)}</td>
-                  </tr>
-                  <tr>
-                    <td>Medicare</td>
-                    <td class="right">${formatCurrency(taxes.medicare)}</td>
-                    <td class="right">${formatCurrency(ytd.ytdTaxes.medicare)}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Total employee taxes</strong></td>
-                    <td class="right"><strong>${formatCurrency(taxes.totalEmployeeTaxes)}</strong></td>
-                    <td class="right"><strong>${formatCurrency(ytd.ytdTaxes.fit + ytd.ytdTaxes.ss + ytd.ytdTaxes.medicare)}</strong></td>
-                  </tr>
-                </tbody>
-              </table>
+
+            <div class="paystub__section paystub__columns">
+              <div class="paystub__card">
+                <h4>Employee</h4>
+                <div class="paystub__kv">
+                  <div><span>Name</span><strong>${employee.name || 'Employee'}</strong></div>
+                  <div><span>Employee ID</span><strong>${employee.id || '—'}</strong></div>
+                  <div><span>Department</span><strong>${employee.department || '—'}</strong></div>
+                  <div><span>Pay rate</span><strong>${payRateLabel}</strong></div>
+                  <div><span>Pay type</span><strong>${employee.pay_rate_type === 'period' ? 'Salary' : 'Hourly'}</strong></div>
+                </div>
+              </div>
+              <div class="paystub__card">
+                <h4>Summary</h4>
+                <div class="paystub__summary">
+                  <div class="paystub__summary-card"><span>Gross pay</span><strong>${formatCurrency(earnings.gross)}</strong></div>
+                  <div class="paystub__summary-card"><span>Total taxes</span><strong>${formatCurrency(totalDeductions)}</strong></div>
+                  <div class="paystub__summary-card is-highlight"><span>Net pay</span><strong>${formatCurrency(netPay)}</strong></div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h4 style="margin-top: 0;">Summary</h4>
-              <div class="summary-card">
-                <div>
-                  <p class="muted">Gross pay</p>
-                  <p>${formatCurrency(earnings.gross)}</p>
+
+            <div class="paystub__section paystub__columns">
+              <div>
+                <h4 style="margin-top: 0;">Earnings</h4>
+                <table class="table compact">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th class="right">Hours</th>
+                      <th class="right">Rate</th>
+                      <th class="right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${earnings.earnings
+                      .map(
+                        (line) => `
+                          <tr>
+                            <td>${line.name}</td>
+                            <td class="right">${line.hours.toFixed(2)}</td>
+                            <td class="right">${formatCurrency(line.rate)}</td>
+                            <td class="right">${formatCurrency(line.amount)}</td>
+                          </tr>
+                        `
+                      )
+                      .join('')}
+                    <tr>
+                      <td colspan="3" class="right"><strong>Total earnings</strong></td>
+                      <td class="right"><strong>${formatCurrency(earnings.gross)}</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <h4 style="margin-top: 0;">Employee taxes</h4>
+                <table class="table compact">
+                  <thead>
+                    <tr>
+                      <th>Tax</th>
+                      <th class="right">This check</th>
+                      <th class="right">Year to date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Federal Income Tax</td>
+                      <td class="right">${formatCurrency(taxes.fit)}</td>
+                      <td class="right">${formatCurrency(ytd.ytdTaxes.fit)}</td>
+                    </tr>
+                    <tr>
+                      <td>Social Security</td>
+                      <td class="right">${formatCurrency(taxes.ss)}</td>
+                      <td class="right">${formatCurrency(ytd.ytdTaxes.ss)}</td>
+                    </tr>
+                    <tr>
+                      <td>Medicare</td>
+                      <td class="right">${formatCurrency(taxes.medicare)}</td>
+                      <td class="right">${formatCurrency(ytd.ytdTaxes.medicare)}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Total employee taxes</strong></td>
+                      <td class="right"><strong>${formatCurrency(taxes.totalEmployeeTaxes)}</strong></td>
+                      <td class="right"><strong>${formatCurrency(ytd.ytdTaxes.fit + ytd.ytdTaxes.ss + ytd.ytdTaxes.medicare)}</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="paystub__section paystub__columns">
+              <div class="paystub__card">
+                <h4>Year-to-date totals</h4>
+                <div class="paystub__kv">
+                  <div><span>YTD gross</span><strong>${formatCurrency(ytd.ytdGross)}</strong></div>
+                  <div><span>YTD taxes</span><strong>${formatCurrency(ytd.ytdTaxes.fit + ytd.ytdTaxes.ss + ytd.ytdTaxes.medicare)}</strong></div>
+                  <div><span>YTD net</span><strong>${formatCurrency(ytdNet)}</strong></div>
                 </div>
-                <div>
-                  <p class="muted">Total deductions</p>
-                  <p>${formatCurrency(totalDeductions)}</p>
-                </div>
-                <div>
-                  <p class="muted">Net pay</p>
-                  <p>${formatCurrency(netPay)}</p>
-                </div>
-                <div>
-                  <p class="muted">YTD gross</p>
-                  <p>${formatCurrency(ytd.ytdGross)}</p>
-                </div>
-                <div>
-                  <p class="muted">YTD net</p>
-                  <p>${formatCurrency(ytdNet)}</p>
+              </div>
+              <div class="paystub__card">
+                <h4>Payment details</h4>
+                <div class="paystub__kv">
+                  <div><span>Payment date</span><strong>${paymentDate}</strong></div>
+                  <div><span>Payroll run</span><strong>${selectedRun.label || `${selectedRun.start_date} → ${selectedRun.end_date}`}</strong></div>
+                  <div><span>Total hours</span><strong>${earnings.totalHours.toFixed(2)}</strong></div>
+                  <div><span>Gross pay</span><strong>${formatCurrency(earnings.gross)}</strong></div>
                 </div>
               </div>
             </div>
@@ -813,23 +889,27 @@
       async function loadData() {
         setStatus('Loading payroll runs...');
         try {
-          const [employeesRes, payTypesRes, entriesRes, runsRes, schedulesRes] = await Promise.all([
+          const [employeesRes, payTypesRes, entriesRes, runsRes, schedulesRes, setupRes] = await Promise.all([
             fetch('/api/employees'),
             fetch('/api/pay-types'),
             fetch('/api/time-entries?status=paid'),
             fetch('/api/payroll-runs'),
-            fetch('/api/pay-schedules')
+            fetch('/api/pay-schedules'),
+            fetch('/api/setup')
           ]);
           const employeesPayload = await employeesRes.json();
           const payTypesPayload = await payTypesRes.json();
           const entriesPayload = await entriesRes.json();
           const runsPayload = await runsRes.json();
           const schedulesPayload = await schedulesRes.json();
+          const setupPayload = await setupRes.json();
           employees = employeesPayload.employees || [];
           payTypes = payTypesPayload.payTypes || [];
           paidEntries = entriesPayload.entries || [];
           payrollRuns = runsPayload.runs || [];
           paySchedules = schedulesPayload.paySchedules || [];
+          companyInfo = setupPayload.setup?.company || {};
+          companyAddress = getCompanyAddress(setupPayload.setup?.addresses);
           if (!payTypes.length) {
             payTypes = [
               { id: 'regular', name: 'Regular' },
