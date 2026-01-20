@@ -19,8 +19,6 @@ ruff_cache/
 # Env / secrets
 .env
 .env.*
-data/setup.json
-data/audit-log.json
 
 # Local data / DB
 *.db
