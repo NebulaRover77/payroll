@@ -10,11 +10,13 @@ function validateCompany(company = {}) {
   if (!company.legalName) errors.legalName = 'Legal name is required';
   if (!company.ein || !EIN_REGEX.test(company.ein)) errors.ein = 'EIN must match NN-NNNNNNN';
   const contact = company.contact || {};
-  if (!contact.name) errors.contactName = 'Contact name is required';
-  if (!contact.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
+  if (contact.name && contact.name.trim().length === 0) {
+    errors.contactName = 'Contact name cannot be blank';
+  }
+  if (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
     errors.contactEmail = 'Provide a valid contact email';
   }
-  if (!contact.phone || contact.phone.replace(/\D/g, '').length < 10) {
+  if (contact.phone && contact.phone.replace(/\D/g, '').length < 10) {
     errors.contactPhone = 'Provide a phone number with 10 digits';
   }
   return errors;

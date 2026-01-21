@@ -23,6 +23,7 @@
         <li><a href="#time">Time</a></li>
         <li><a href="#payroll">Payroll</a></li>
         <li><a href="#reports">Reports</a></li>
+        <li><a href="#company-settings">Company</a></li>
         <li><a href="#admin">Admin</a></li>
       </ul>
     </nav>
@@ -289,6 +290,178 @@
           <p class="muted">Snapshot of the last five payrolls.</p>
           <ul id="net-trend" class="pill-list"></ul>
         </article>
+      </div>
+    </section>
+
+    <section id="company-settings" class="panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Company</p>
+          <h2>Company settings</h2>
+          <p class="muted">Configure company details and pay stub printing defaults.</p>
+        </div>
+        <div class="pill">Pay stub ready</div>
+      </div>
+      <div class="split settings-grid">
+        <form id="company-form" class="form-card">
+          <div class="form-row">
+            <label for="company-legal-name">Legal company name</label>
+            <input id="company-legal-name" name="legalName" required placeholder="Nebula Industries LLC" />
+          </div>
+          <div class="form-row">
+            <label for="company-dba">DBA name</label>
+            <input id="company-dba" name="dbaName" placeholder="Nebula Payroll" />
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="company-ein">EIN</label>
+              <input id="company-ein" name="ein" placeholder="12-3456789" />
+            </div>
+            <div class="form-row">
+              <label for="company-phone">Phone</label>
+              <input id="company-phone" name="phone" placeholder="(415) 555-0199" />
+            </div>
+            <div class="form-row">
+              <label for="company-email">Payroll email</label>
+              <input id="company-email" name="email" type="email" placeholder="payroll@nebula.com" />
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="company-address-1">Address line 1</label>
+            <input id="company-address-1" name="address1" placeholder="455 Stellar Way" />
+          </div>
+          <div class="form-row">
+            <label for="company-address-2">Address line 2</label>
+            <input id="company-address-2" name="address2" placeholder="Suite 900" />
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="company-city">City</label>
+              <input id="company-city" name="city" placeholder="San Francisco" />
+            </div>
+            <div class="form-row">
+              <label for="company-state">State</label>
+              <input id="company-state" name="state" placeholder="CA" />
+            </div>
+            <div class="form-row">
+              <label for="company-zip">ZIP</label>
+              <input id="company-zip" name="zip" placeholder="94105" />
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="company-website">Website</label>
+              <input id="company-website" name="website" placeholder="nebula.com" />
+            </div>
+            <div class="form-row">
+              <label for="company-logo">Logo URL</label>
+              <input id="company-logo" name="logo" placeholder="https://..." />
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="company-payor-bank">Payor bank</label>
+              <input id="company-payor-bank" name="payorBank" placeholder="Lunar Federal Bank" />
+            </div>
+            <div class="form-row">
+              <label for="company-payor-last4">Account last 4</label>
+              <input id="company-payor-last4" name="payorLast4" placeholder="1027" />
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="stub-template">Pay stub template</label>
+            <select id="stub-template" name="template">
+              <option value="detailed">Detailed</option>
+              <option value="compact">Compact</option>
+              <option value="ledger">Ledger</option>
+            </select>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="stub-paper-size">Paper size</label>
+              <select id="stub-paper-size" name="paperSize">
+                <option value="letter">US Letter (8.5x11)</option>
+                <option value="legal">US Legal (8.5x14)</option>
+                <option value="a4">A4</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="stub-orientation">Orientation</label>
+              <select id="stub-orientation" name="orientation">
+                <option value="portrait">Portrait</option>
+                <option value="landscape">Landscape</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="stub-delivery">Delivery method</label>
+              <select id="stub-delivery" name="delivery">
+                <option value="print">Print & distribute</option>
+                <option value="pdf">PDF download</option>
+                <option value="email">Email to employees</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="stub-margin-top">Top margin (in)</label>
+              <input id="stub-margin-top" name="marginTop" type="number" min="0" step="0.1" />
+            </div>
+            <div class="form-row">
+              <label for="stub-margin-right">Right margin (in)</label>
+              <input id="stub-margin-right" name="marginRight" type="number" min="0" step="0.1" />
+            </div>
+            <div class="form-row">
+              <label for="stub-margin-bottom">Bottom margin (in)</label>
+              <input id="stub-margin-bottom" name="marginBottom" type="number" min="0" step="0.1" />
+            </div>
+            <div class="form-row">
+              <label for="stub-margin-left">Left margin (in)</label>
+              <input id="stub-margin-left" name="marginLeft" type="number" min="0" step="0.1" />
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row inline">
+              <label for="stub-include-logo">Include logo</label>
+              <select id="stub-include-logo" name="includeLogo">
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+              <label for="stub-include-ytd">Show YTD totals</label>
+              <select id="stub-include-ytd" name="includeYtd">
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            <div class="form-row inline">
+              <label for="stub-include-dept">Show department</label>
+              <select id="stub-include-dept" name="includeDept">
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+              <label for="stub-include-signature">Signature line</label>
+              <select id="stub-include-signature" name="includeSignature">
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="stub-number-prefix">Pay stub prefix</label>
+              <input id="stub-number-prefix" name="stubPrefix" placeholder="NP-" />
+            </div>
+            <div class="form-row">
+              <label for="stub-next-number">Next stub number</label>
+              <input id="stub-next-number" name="stubNumber" type="number" min="1" />
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="stub-footer-note">Pay stub footer note</label>
+            <textarea id="stub-footer-note" name="footerNote" rows="3" placeholder="Need help? Contact payroll@nebula.com"></textarea>
+          </div>
+          <button class="btn primary" type="submit">Save settings</button>
+        </form>
+        <div class="preview-card" id="company-preview" aria-live="polite"></div>
       </div>
     </section>
 

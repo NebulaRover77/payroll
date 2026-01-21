@@ -20,20 +20,205 @@
       <main class="workspace">
         <section class="workspace__heading">
           <h1>Company Settings</h1>
-          <p class="lead">Manage tax details, pay schedules, and system access.</p>
+          <p class="lead">Update company profile details and pay stub printing defaults.</p>
         </section>
 
         <section class="panel">
-          <h2>Configuration</h2>
-          <ul class="action-list">
-            <li>Update company information and tax accounts for <a class="nav-link" href="/payroll-new.html">upcoming runs</a>.</li>
-            <li>Adjust pay schedules to keep <a class="nav-link" href="/timesheets.html">time tracking</a> aligned.</li>
-            <li>Confirm report delivery preferences in the <a class="nav-link" href="/reports.html">reports center</a>.</li>
-          </ul>
-          <div class="actions" style="margin-top: 16px;">
-            <a class="btn primary" href="/dashboard.html">Save and return</a>
-            <a class="btn ghost" href="/employees.html">Manage employees</a>
+          <div class="settings-header">
+            <div>
+              <h2>Configuration</h2>
+              <p class="muted" style="margin: 0.35rem 0 0;">These fields populate pay stubs and printing defaults.</p>
+            </div>
+            <div class="pill">Pay stub ready</div>
           </div>
+
+          <div id="settingsNotice" class="notice" style="display: none; margin-top: 12px;"></div>
+          <div id="settingsSuccess" class="success" style="display: none; margin-top: 12px;"></div>
+
+          <form id="companySettingsForm" class="settings-grid" autocomplete="off">
+            <div class="settings-card">
+              <h3>Company profile</h3>
+              <div class="form-grid">
+                <div>
+                  <label for="legalName">Legal name</label>
+                  <input id="legalName" name="legalName" required placeholder="Nebula Industries LLC" />
+                </div>
+                <div>
+                  <label for="ein">EIN</label>
+                  <input id="ein" name="ein" required placeholder="12-3456789" />
+                </div>
+                <div>
+                  <label for="contactName">Payroll contact</label>
+                  <input id="contactName" name="contactName" placeholder="Pay Team" />
+                </div>
+                <div>
+                  <label for="contactEmail">Contact email</label>
+                  <input id="contactEmail" name="contactEmail" type="email" placeholder="payroll@nebula.com" />
+                </div>
+                <div>
+                  <label for="contactPhone">Contact phone</label>
+                  <input id="contactPhone" name="contactPhone" placeholder="(415) 555-0199" />
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-top: 1rem;">
+                <div>
+                  <label for="addressLine1">Legal address line 1</label>
+                  <input id="addressLine1" name="addressLine1" required placeholder="455 Stellar Way" />
+                </div>
+                <div>
+                  <label for="addressLine2">Legal address line 2</label>
+                  <input id="addressLine2" name="addressLine2" placeholder="Suite 900" />
+                </div>
+                <div>
+                  <label for="addressCity">City</label>
+                  <input id="addressCity" name="addressCity" required placeholder="San Francisco" />
+                </div>
+                <div>
+                  <label for="addressState">State</label>
+                  <select id="addressState" name="addressState" required></select>
+                </div>
+                <div>
+                  <label for="addressPostal">Postal code</label>
+                  <input id="addressPostal" name="addressPostal" required placeholder="94105" />
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h3>Pay stub printing</h3>
+              <div class="form-grid">
+                <div>
+                  <label for="stubTemplate">Stub template</label>
+                  <select id="stubTemplate" name="stubTemplate">
+                    <option value="detailed">Detailed</option>
+                    <option value="compact">Compact</option>
+                    <option value="ledger">Ledger</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="stubPaperSize">Paper size</label>
+                  <select id="stubPaperSize" name="stubPaperSize">
+                    <option value="letter">US Letter (8.5x11)</option>
+                    <option value="legal">US Legal (8.5x14)</option>
+                    <option value="a4">A4</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="stubOrientation">Orientation</label>
+                  <select id="stubOrientation" name="stubOrientation">
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="stubDelivery">Delivery method</label>
+                  <select id="stubDelivery" name="stubDelivery">
+                    <option value="print">Print & distribute</option>
+                    <option value="pdf">PDF download</option>
+                    <option value="email">Email to employees</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-top: 1rem;">
+                <div>
+                  <label for="stubMarginTop">Top margin (in)</label>
+                  <input id="stubMarginTop" name="stubMarginTop" type="number" min="0" step="0.1" />
+                </div>
+                <div>
+                  <label for="stubMarginRight">Right margin (in)</label>
+                  <input id="stubMarginRight" name="stubMarginRight" type="number" min="0" step="0.1" />
+                </div>
+                <div>
+                  <label for="stubMarginBottom">Bottom margin (in)</label>
+                  <input id="stubMarginBottom" name="stubMarginBottom" type="number" min="0" step="0.1" />
+                </div>
+                <div>
+                  <label for="stubMarginLeft">Left margin (in)</label>
+                  <input id="stubMarginLeft" name="stubMarginLeft" type="number" min="0" step="0.1" />
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-top: 1rem;">
+                <div>
+                  <label for="stubIncludeLogo">Include logo</label>
+                  <select id="stubIncludeLogo" name="stubIncludeLogo">
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="stubIncludeYtd">Show YTD totals</label>
+                  <select id="stubIncludeYtd" name="stubIncludeYtd">
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="stubIncludeDepartment">Show department</label>
+                  <select id="stubIncludeDepartment" name="stubIncludeDepartment">
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="stubIncludeSignature">Signature line</label>
+                  <select id="stubIncludeSignature" name="stubIncludeSignature">
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-top: 1rem;">
+                <div>
+                  <label for="stubPrefix">Stub prefix</label>
+                  <input id="stubPrefix" name="stubPrefix" placeholder="NP-" />
+                </div>
+                <div>
+                  <label for="stubNextNumber">Next stub number</label>
+                  <input id="stubNextNumber" name="stubNextNumber" type="number" min="1" />
+                </div>
+              </div>
+
+              <div style="margin-top: 1rem;">
+                <label for="stubFooterNote">Pay stub footer note</label>
+                <textarea id="stubFooterNote" name="stubFooterNote" rows="3" placeholder="Need help? Contact payroll@nebula.com"></textarea>
+              </div>
+
+              <div class="form-grid" style="margin-top: 1rem;">
+                <div>
+                  <label for="payorBank">Payor bank</label>
+                  <input id="payorBank" name="payorBank" placeholder="Lunar Federal Bank" />
+                </div>
+                <div>
+                  <label for="payorAccountLast4">Account last 4</label>
+                  <input id="payorAccountLast4" name="payorAccountLast4" placeholder="1027" />
+                </div>
+              </div>
+            </div>
+
+            <aside class="settings-card settings-preview">
+              <h3>Pay stub preview</h3>
+              <div id="settingsPreview" class="preview-card"></div>
+            </aside>
+
+            <div class="settings-card">
+              <h3>Admin access</h3>
+              <p class="muted" style="margin-top: 0;">An admin token is required to save updates to the server.</p>
+              <div class="form-grid">
+                <div>
+                  <label for="adminTokenInput">Admin token</label>
+                  <input id="adminTokenInput" name="adminTokenInput" type="password" placeholder="Paste admin token" />
+                </div>
+              </div>
+              <div class="actions" style="margin-top: 1rem;">
+                <button class="btn primary" type="submit">Save settings</button>
+                <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
+              </div>
+            </div>
+          </form>
         </section>
       </main>
     </div>
@@ -49,6 +234,255 @@
         localStorage.removeItem('payrollAuthToken');
         window.location.href = '/';
       });
+
+      const STATE_OPTIONS = [
+        'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI',
+        'MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT',
+        'VT','VA','WA','WV','WI','WY','DC'
+      ];
+
+      const settingsForm = document.getElementById('companySettingsForm');
+      const settingsNotice = document.getElementById('settingsNotice');
+      const settingsSuccess = document.getElementById('settingsSuccess');
+      const settingsPreview = document.getElementById('settingsPreview');
+      const adminTokenInput = document.getElementById('adminTokenInput');
+      const addressStateSelect = document.getElementById('addressState');
+
+      let setupState = {};
+
+      const defaultStubSettings = {
+        template: 'detailed',
+        paperSize: 'letter',
+        orientation: 'portrait',
+        delivery: 'print',
+        marginTop: 0.5,
+        marginRight: 0.5,
+        marginBottom: 0.5,
+        marginLeft: 0.5,
+        includeLogo: 'yes',
+        includeYtd: 'yes',
+        includeDepartment: 'yes',
+        includeSignature: 'yes',
+        stubPrefix: 'NP-',
+        stubNextNumber: 1021,
+        footerNote: 'Need help? Contact payroll@nebula.com',
+        payorBank: 'Lunar Federal Bank',
+        payorAccountLast4: '1027'
+      };
+
+      function setMessage(el, message) {
+        el.style.display = message ? 'block' : 'none';
+        el.textContent = message || '';
+      }
+
+      function getAdminToken() {
+        return adminTokenInput.value || localStorage.getItem('adminToken') || '';
+      }
+
+      function persistAdminToken() {
+        if (adminTokenInput.value) {
+          localStorage.setItem('adminToken', adminTokenInput.value);
+        }
+      }
+
+      function getLegalAddress(addresses = []) {
+        return addresses.find((address) => address.type === 'legal') || addresses[0] || {};
+      }
+
+      function updatePreview() {
+        const company = collectCompany();
+        const address = collectAddress();
+        const stubSettings = collectStubSettings();
+        const addressLine = [address.line1, address.line2, address.city, address.state, address.postalCode]
+          .filter(Boolean)
+          .join(', ');
+        const stubNumber = `${stubSettings.stubPrefix || ''}${stubSettings.stubNextNumber || ''}`.trim();
+
+        settingsPreview.innerHTML = `
+          <div class="preview-card__title">${company.legalName || 'Company name'}</div>
+          <div class="muted">${company.ein ? `EIN ${company.ein}` : 'EIN not set'}</div>
+          <div class="muted">${addressLine || 'Legal address not set'}</div>
+          <div class="muted">${[company.contact.phone, company.contact.email].filter(Boolean).join(' • ') || 'Contact details missing'}</div>
+          <ul class="settings-list">
+            <li><strong>Template</strong><span>${stubSettings.template}</span></li>
+            <li><strong>Paper</strong><span>${stubSettings.paperSize} · ${stubSettings.orientation}</span></li>
+            <li><strong>Margins</strong><span>${stubSettings.marginTop} / ${stubSettings.marginRight} / ${stubSettings.marginBottom} / ${stubSettings.marginLeft} in</span></li>
+            <li><strong>Delivery</strong><span>${stubSettings.delivery}</span></li>
+            <li><strong>Show logo</strong><span>${stubSettings.includeLogo}</span></li>
+            <li><strong>Include YTD</strong><span>${stubSettings.includeYtd}</span></li>
+            <li><strong>Department line</strong><span>${stubSettings.includeDepartment}</span></li>
+            <li><strong>Signature line</strong><span>${stubSettings.includeSignature}</span></li>
+            <li><strong>Stub number</strong><span>${stubNumber || '—'}</span></li>
+            <li><strong>Payor bank</strong><span>${stubSettings.payorBank || '—'} ••••${stubSettings.payorAccountLast4 || '—'}</span></li>
+          </ul>
+          <div class="muted">${stubSettings.footerNote || 'No footer note set.'}</div>
+        `;
+      }
+
+      function collectCompany() {
+        return {
+          legalName: settingsForm.legalName.value.trim(),
+          ein: settingsForm.ein.value.trim(),
+          contact: {
+            name: settingsForm.contactName.value.trim(),
+            email: settingsForm.contactEmail.value.trim(),
+            phone: settingsForm.contactPhone.value.trim()
+          }
+        };
+      }
+
+      function collectAddress() {
+        return {
+          type: 'legal',
+          line1: settingsForm.addressLine1.value.trim(),
+          line2: settingsForm.addressLine2.value.trim(),
+          city: settingsForm.addressCity.value.trim(),
+          state: settingsForm.addressState.value,
+          postalCode: settingsForm.addressPostal.value.trim()
+        };
+      }
+
+      function collectStubSettings() {
+        return {
+          template: settingsForm.stubTemplate.value,
+          paperSize: settingsForm.stubPaperSize.value,
+          orientation: settingsForm.stubOrientation.value,
+          delivery: settingsForm.stubDelivery.value,
+          marginTop: Number(settingsForm.stubMarginTop.value) || 0,
+          marginRight: Number(settingsForm.stubMarginRight.value) || 0,
+          marginBottom: Number(settingsForm.stubMarginBottom.value) || 0,
+          marginLeft: Number(settingsForm.stubMarginLeft.value) || 0,
+          includeLogo: settingsForm.stubIncludeLogo.value,
+          includeYtd: settingsForm.stubIncludeYtd.value,
+          includeDepartment: settingsForm.stubIncludeDepartment.value,
+          includeSignature: settingsForm.stubIncludeSignature.value,
+          stubPrefix: settingsForm.stubPrefix.value.trim(),
+          stubNextNumber: Number(settingsForm.stubNextNumber.value) || '',
+          footerNote: settingsForm.stubFooterNote.value.trim(),
+          payorBank: settingsForm.payorBank.value.trim(),
+          payorAccountLast4: settingsForm.payorAccountLast4.value.trim()
+        };
+      }
+
+      function populateForm(setup = {}) {
+        const company = setup.company || {};
+        const contact = company.contact || {};
+        const address = getLegalAddress(setup.addresses || []);
+        const stubSettings = { ...defaultStubSettings, ...(setup.payStubSettings || {}) };
+
+        settingsForm.legalName.value = company.legalName || '';
+        settingsForm.ein.value = company.ein || '';
+        settingsForm.contactName.value = contact.name || '';
+        settingsForm.contactEmail.value = contact.email || '';
+        settingsForm.contactPhone.value = contact.phone || '';
+        settingsForm.addressLine1.value = address.line1 || '';
+        settingsForm.addressLine2.value = address.line2 || '';
+        settingsForm.addressCity.value = address.city || '';
+        settingsForm.addressState.value = address.state || '';
+        settingsForm.addressPostal.value = address.postalCode || '';
+        settingsForm.stubTemplate.value = stubSettings.template;
+        settingsForm.stubPaperSize.value = stubSettings.paperSize;
+        settingsForm.stubOrientation.value = stubSettings.orientation;
+        settingsForm.stubDelivery.value = stubSettings.delivery;
+        settingsForm.stubMarginTop.value = stubSettings.marginTop;
+        settingsForm.stubMarginRight.value = stubSettings.marginRight;
+        settingsForm.stubMarginBottom.value = stubSettings.marginBottom;
+        settingsForm.stubMarginLeft.value = stubSettings.marginLeft;
+        settingsForm.stubIncludeLogo.value = stubSettings.includeLogo;
+        settingsForm.stubIncludeYtd.value = stubSettings.includeYtd;
+        settingsForm.stubIncludeDepartment.value = stubSettings.includeDepartment;
+        settingsForm.stubIncludeSignature.value = stubSettings.includeSignature;
+        settingsForm.stubPrefix.value = stubSettings.stubPrefix;
+        settingsForm.stubNextNumber.value = stubSettings.stubNextNumber;
+        settingsForm.stubFooterNote.value = stubSettings.footerNote;
+        settingsForm.payorBank.value = stubSettings.payorBank;
+        settingsForm.payorAccountLast4.value = stubSettings.payorAccountLast4;
+
+        updatePreview();
+      }
+
+      function updateAddressList(addresses = [], updatedLegal) {
+        const nextAddresses = Array.isArray(addresses) ? [...addresses] : [];
+        const legalIndex = nextAddresses.findIndex((address) => address.type === 'legal');
+        if (legalIndex >= 0) {
+          nextAddresses[legalIndex] = { ...nextAddresses[legalIndex], ...updatedLegal };
+        } else {
+          nextAddresses.unshift(updatedLegal);
+        }
+        return nextAddresses;
+      }
+
+      async function loadSetup() {
+        try {
+          const response = await fetch('/api/setup');
+          const payload = await response.json();
+          setupState = payload.setup || {};
+          populateForm(setupState);
+        } catch (error) {
+          console.error('Failed to load company settings', error);
+          setMessage(settingsNotice, 'Unable to load company settings.');
+        }
+      }
+
+      async function saveSettings() {
+        setMessage(settingsNotice, '');
+        setMessage(settingsSuccess, '');
+        persistAdminToken();
+        const token = getAdminToken();
+        if (!token) {
+          setMessage(settingsNotice, 'Add an admin token to save company settings.');
+          return;
+        }
+
+        const payload = {
+          ...setupState,
+          company: collectCompany(),
+          addresses: updateAddressList(setupState.addresses || [], collectAddress()),
+          payStubSettings: collectStubSettings(),
+          completed: setupState.completed || false,
+          currentStep: setupState.currentStep || 'company'
+        };
+
+        try {
+          const response = await fetch('/api/admin/setup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Admin-Token': token
+            },
+            body: JSON.stringify(payload)
+          });
+          const saved = await response.json();
+          if (!response.ok) {
+            const details = saved.details ? Object.values(saved.details).join(' ') : saved.error;
+            throw new Error(details || 'Unable to save settings.');
+          }
+          setupState = saved;
+          populateForm(setupState);
+          setMessage(settingsSuccess, 'Company settings saved.');
+        } catch (error) {
+          console.error('Failed to save settings', error);
+          setMessage(settingsNotice, error.message || 'Unable to save company settings.');
+        }
+      }
+
+      addressStateSelect.innerHTML = STATE_OPTIONS.map((state) => `<option value="${state}">${state}</option>`).join('');
+
+      settingsForm.addEventListener('input', () => {
+        updatePreview();
+      });
+
+      settingsForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveSettings();
+      });
+
+      adminTokenInput.addEventListener('input', persistAdminToken);
+
+      const savedToken = localStorage.getItem('adminToken');
+      if (savedToken) adminTokenInput.value = savedToken;
+
+      loadSetup();
     </script>
   </body>
 </html>
