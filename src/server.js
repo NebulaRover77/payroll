@@ -73,7 +73,8 @@ function runStubPdfExport({ entryId }) {
       '--output',
       outputPath
     ];
-    const process = spawn('python3', scriptArgs, { stdio: 'pipe' });
+    const pythonPath = process.env.PAYROLL_PDF_PYTHON || 'python3';
+    const process = spawn(pythonPath, scriptArgs, { stdio: 'pipe' });
     let stderr = '';
     process.stderr.on('data', (chunk) => {
       stderr += chunk.toString();
