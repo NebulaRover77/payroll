@@ -230,7 +230,8 @@ def _compute_taxes(
 
 
 def _compute_earnings(entry: ReportRow, employee: ReportRow, pay_types: Iterable[ReportRow]) -> Dict[str, Any]:
-    hours_by_type = {ptype["id"]: float(entry.get("hours", {}).get(ptype["id"], 0)) for ptype in pay_types}
+    hours = entry.get("hours") or {}
+    hours_by_type = {ptype["id"]: float(hours.get(ptype["id"], 0)) for ptype in pay_types}
     total_hours = sum(hours_by_type.values())
     rate = float(employee.get("pay_rate") or 0.0)
     is_salary = employee.get("pay_rate_type") == "period"
@@ -254,15 +255,20 @@ def _sum_year_to_date(
     schedules: Iterable[ReportRow],
     through_date: str,
 ) -> Tuple[float, Dict[str, float]]:
+    if not through_date:
+        return 0.0, {"fit": 0.0, "ss": 0.0, "medicare": 0.0}
     year = _year_from_date(through_date)
     ytd_gross = 0.0
     ytd_taxes = {"fit": 0.0, "ss": 0.0, "medicare": 0.0}
     for entry in entries:
         if entry.get("employee_id") != employee.get("id"):
             continue
-        if _year_from_date(entry.get("end_date")) != year:
+        entry_end_date = entry.get("end_date")
+        if not entry_end_date:
             continue
-        if entry.get("end_date") > through_date:
+        if _year_from_date(entry_end_date) != year:
+            continue
+        if entry_end_date > through_date:
             continue
         earnings = _compute_earnings(entry, employee, pay_types)
         taxes = _compute_taxes(earnings["gross"], employee, ytd_gross, schedules)
@@ -418,7 +424,7 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
-        output_path,
+        str(output_path),
         pagesize=letter,
         leftMargin=0.6 * inch,
         rightMargin=0.6 * inch,
