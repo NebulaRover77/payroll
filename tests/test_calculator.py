@@ -73,3 +73,31 @@ def test_preview_wizard_aggregates_totals():
     assert totals.gross_pay > 0
     assert totals.employer_taxes
     assert totals.taxes_withheld["federal"] > 0
+
+
+def test_employer_taxes_respect_wage_base():
+    calc = build_calculator()
+    request = EmployeePayrollRequest(
+        employee_id="emp3",
+        earnings=[EarningLine("regular", hours=2000, rate=100)],
+        tax_profile=TaxProfile(filing_status="single", allowances=0, state="CA"),
+    )
+
+    result = calc.calculate_employee(request)
+
+    assert result.employer_taxes["fica"] == 9932.4
+    assert result.employer_taxes["medicare"] == 2900.0
+
+
+def test_post_tax_deductions_floor_net_pay_at_zero():
+    calc = build_calculator()
+    request = EmployeePayrollRequest(
+        employee_id="emp4",
+        earnings=[EarningLine("regular", hours=5, rate=20)],
+        deductions=[Deduction(priority=1, name="advance", amount=500, applies_pre_tax=False)],
+        tax_profile=TaxProfile(filing_status="single", allowances=0, state=""),
+    )
+
+    result = calc.calculate_employee(request)
+
+    assert result.net_pay == 0.0
