@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import data
 from .audit import AuditLogger
-from .check_stub import export_check_stub_pdf
+from .pay_stub import export_check_stub_pdf
 from .exporter import export_report
 from .reports import ReportRequest, build_report
 from .scheduler import Schedule, Scheduler
