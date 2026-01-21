@@ -441,6 +441,12 @@ textarea:focus {
   margin-bottom: 1rem;
 }
 
+.modal__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .paystub {
   display: grid;
   gap: 1.5rem;
@@ -581,6 +587,7 @@ textarea:focus {
   margin: 0;
   font-weight: 600;
 }
+
 
 .table-grid {
   display: grid;

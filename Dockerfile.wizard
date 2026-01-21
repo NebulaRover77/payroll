@@ -2,9 +2,16 @@ FROM node:20-alpine
 WORKDIR /app
 COPY package.json ./
 RUN npm install --production
+RUN apk add --no-cache python3 py3-pip
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 COPY public ./public
+COPY payroll_reports ./payroll_reports
 COPY src ./src
 COPY data ./data
 EXPOSE 3000
 ENV PORT=3000
+ENV PAYROLL_PDF_PYTHON=/opt/venv/bin/python
 CMD ["npm", "start"]

@@ -89,7 +89,5 @@ Console:
 - `docs/` — security/architecture/feature design docs
 - `scripts/` — backup/restore + misc utilities
 
----
-
 ## CI
 GitHub Actions runs Python lint/tests for the backend (see `.github/workflows/ci.yml`).

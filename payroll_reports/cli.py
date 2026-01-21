@@ -7,12 +7,19 @@ from pathlib import Path
 
 from . import data
 from .audit import AuditLogger
+from .pay_stub import export_check_stub_pdf
 from .exporter import export_report
 from .reports import ReportRequest, build_report
 from .scheduler import Schedule, Scheduler
 
 
-REPORT_CHOICES = ["payroll-register", "payment-detail", "deductions-taxes-summary", "labor-distribution"]
+REPORT_CHOICES = [
+    "payroll-register",
+    "payment-detail",
+    "deductions-taxes-summary",
+    "labor-distribution",
+    "check-stub",
+]
 
 
 def parse_date(value: str | None):
@@ -22,20 +29,29 @@ def parse_date(value: str | None):
 
 
 def run_report(args: argparse.Namespace) -> None:
-    request = ReportRequest(
-        report_type=args.report,
-        start_date=parse_date(args.start_date),
-        end_date=parse_date(args.end_date),
-        pay_schedules=args.pay_schedule,
-        departments=args.department,
-    )
-    rows = build_report(request, data.payments)
-    if args.output:
+    if args.report == "check-stub":
+        if not args.output:
+            raise ValueError("Check stubs must be exported to a PDF file.")
         output_path = Path(args.output)
-        export_report(rows, output_path, title=args.report)
-        print(f"Report exported to {output_path}")
+        if output_path.suffix.lower() != ".pdf":
+            raise ValueError("Check stubs are only supported as PDF exports.")
+        export_check_stub_pdf(data.payments, data.employees, output_path)
+        print(f"Check stubs exported to {output_path}")
     else:
-        print(json.dumps(rows, default=str, indent=2))
+        request = ReportRequest(
+            report_type=args.report,
+            start_date=parse_date(args.start_date),
+            end_date=parse_date(args.end_date),
+            pay_schedules=args.pay_schedule,
+            departments=args.department,
+        )
+        rows = build_report(request, data.payments)
+        if args.output:
+            output_path = Path(args.output)
+            export_report(rows, output_path, title=args.report)
+            print(f"Report exported to {output_path}")
+        else:
+            print(json.dumps(rows, default=str, indent=2))
 
     AuditLogger().log(
         {
