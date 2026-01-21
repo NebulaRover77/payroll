@@ -89,20 +89,5 @@ Console:
 - `docs/` — security/architecture/feature design docs
 - `scripts/` — backup/restore + misc utilities
 
----
-
-## Printing pay stubs
-
-The reporting utility can generate printable check stub PDFs from the sample payroll data. Make sure the ReportLab dependency is installed before running the export.
-
-```bash
-pip install -r payroll_reports/requirements.txt
-python -m payroll_reports.cli run-report --report check-stub --output /tmp/pay-stubs.pdf
-```
-
-Print the generated PDF using your preferred OS tool or PDF viewer (for example, `lp /tmp/pay-stubs.pdf` on Linux).
-
----
-
 ## CI
 GitHub Actions runs Python lint/tests for the backend (see `.github/workflows/ci.yml`).
