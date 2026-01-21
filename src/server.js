@@ -1,6 +1,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { spawn } = require('child_process');
 const { randomUUID } = require('crypto');
 const {
   validateSetup,
@@ -52,6 +54,37 @@ function sendFile(res, filePath) {
         : 'text/html';
   res.writeHead(200, { 'Content-Type': mime });
   fs.createReadStream(filePath).pipe(res);
+}
+
+function runStubPdfExport({ entryId }) {
+  return new Promise((resolve, reject) => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'paystub-'));
+    const outputPath = path.join(tempDir, `pay-stub-${entryId}.pdf`);
+    const setupPath = path.join(DATA_DIR, 'setup.json');
+    const scriptArgs = [
+      '-m',
+      'payroll_reports.web_stub_export',
+      '--store-path',
+      DATA_STORE_PATH,
+      '--setup-path',
+      setupPath,
+      '--entry-id',
+      entryId,
+      '--output',
+      outputPath
+    ];
+    const process = spawn('python3', scriptArgs, { stdio: 'pipe' });
+    let stderr = '';
+    process.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    process.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(stderr || 'PDF generation failed.'));
+      }
+      return resolve({ outputPath, tempDir });
+    });
+  });
 }
 
 function requireAdmin(req, res) {
@@ -575,6 +608,42 @@ function handleApi(req, res) {
         return sendJson(res, 200, { updated, run });
       })
       .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/pay-stubs/pdf') {
+    const entryId = url.searchParams.get('entry_id');
+    if (!entryId) {
+      return sendJson(res, 400, { error: 'Entry ID is required' });
+    }
+    const store = readStore();
+    const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
+    const entry = entries.find((item) => item.id === entryId);
+    if (!entry) {
+      return sendJson(res, 404, { error: 'Time entry not found' });
+    }
+    if (entry.status !== 'paid') {
+      return sendJson(res, 400, { error: 'Pay stubs are only available for paid entries' });
+    }
+
+    return runStubPdfExport({ entryId })
+      .then(({ outputPath, tempDir }) => {
+        res.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="pay-stub-${entryId}.pdf"`
+        });
+        const stream = fs.createReadStream(outputPath);
+        stream.pipe(res);
+        stream.on('close', () => {
+          fs.unlink(outputPath, () => {
+            fs.rmdir(tempDir, () => undefined);
+          });
+        });
+        return null;
+      })
+      .catch((error) => {
+        console.error('Failed to generate pay stub PDF', error);
+        return sendJson(res, 500, { error: 'Unable to generate pay stub PDF' });
+      });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/time-entries/payment-date') {

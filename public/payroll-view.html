@@ -374,6 +374,7 @@
       let payrollRuns = [];
       let paidEntries = [];
       let selectedRun = null;
+      let selectedStubEntryId = null;
       let companyInfo = {};
       let companyAddress = null;
 
@@ -721,6 +722,7 @@
         if (!entry || !selectedRun) return;
         const employee = getEmployee(entry);
         if (!employee) return;
+        selectedStubEntryId = entryId;
         const earnings = computeEarnings(entry, employee);
         const ytd = sumYearToDate(employee.id, entry.end_date);
         const taxes = computeTaxes(earnings.gross, employee, ytd.ytdGross - earnings.gross);
@@ -888,37 +890,29 @@
       function closeModal() {
         stubModal.classList.remove('is-open');
         stubModal.setAttribute('aria-hidden', 'true');
+        selectedStubEntryId = null;
       }
 
-      function buildStubPrintDocument() {
-        const printWindow = window.open('', '_blank', 'width=900,height=700');
-        if (!printWindow) return;
-        const title = stubSubtitle.textContent || 'Pay stub';
-        const stubHtml = stubContent.innerHTML;
-
-        printWindow.document.open();
-        printWindow.document.write(`
-          <!doctype html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <title>${title}</title>
-              <link rel="stylesheet" href="/styles.css" />
-              <style>
-                body { margin: 24px; }
-              </style>
-            </head>
-            <body>
-              <h2>${title}</h2>
-              ${stubHtml}
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.onafterprint = () => printWindow.close();
-        printWindow.print();
+      async function downloadStubPdf() {
+        if (!selectedStubEntryId) return;
+        try {
+          const response = await fetch(`/api/pay-stubs/pdf?entry_id=${encodeURIComponent(selectedStubEntryId)}`);
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || 'Unable to download pay stub PDF');
+          }
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `pay-stub-${selectedStubEntryId}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+        } catch (error) {
+          setNotice(error.message || 'Unable to download pay stub PDF.');
+        }
       }
 
       async function loadData() {
@@ -1056,7 +1050,7 @@
 
       stubDownloadBtn.addEventListener('click', () => {
         if (!stubModal.classList.contains('is-open')) return;
-        buildStubPrintDocument();
+        downloadStubPdf();
       });
 
       stubModal.addEventListener('click', (event) => {
