@@ -74,12 +74,12 @@ function runStubPdfExport({ entryId }) {
       outputPath
     ];
     const pythonPath = process.env.PAYROLL_PDF_PYTHON || 'python3';
-    const process = spawn(pythonPath, scriptArgs, { stdio: 'pipe' });
+    const childProcess = spawn(pythonPath, scriptArgs, { stdio: 'pipe' });
     let stderr = '';
-    process.stderr.on('data', (chunk) => {
+    childProcess.stderr.on('data', (chunk) => {
       stderr += chunk.toString();
     });
-    process.on('close', (code) => {
+    childProcess.on('close', (code) => {
       if (code !== 0) {
         return reject(new Error(stderr || 'PDF generation failed.'));
       }
