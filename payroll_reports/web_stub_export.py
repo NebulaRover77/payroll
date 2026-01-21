@@ -100,7 +100,8 @@ def _get_pay_periods(schedule_name: str, schedules: Iterable[ReportRow]) -> int:
 
 
 def _resolve_filing_status(employee: ReportRow) -> str:
-    status = employee.get("w4", {}).get("filing_status")
+    w4 = employee.get("w4") or {}
+    status = w4.get("filing_status")
     if status == "married":
         return "married"
     if status == "head":
@@ -185,15 +186,16 @@ def _lookup_percentage_table(
 
 
 def _compute_fit(gross: float, employee: ReportRow, schedules: Iterable[ReportRow]) -> float:
-    if employee.get("w4", {}).get("tax_exempt"):
+    w4 = employee.get("w4") or {}
+    if w4.get("tax_exempt"):
         return 0.0
     pay_periods = _get_pay_periods(employee.get("pay_schedule", ""), schedules)
     filing_status = _resolve_filing_status(employee)
-    step2_checked = bool(employee.get("w4", {}).get("box2c_checked"))
-    step3_credits = float(employee.get("w4", {}).get("step3") or 0)
-    step4a = float(employee.get("w4", {}).get("step4a") or 0)
-    step4b = float(employee.get("w4", {}).get("step4b") or 0)
-    step4c = float(employee.get("w4", {}).get("step4c") or 0)
+    step2_checked = bool(w4.get("box2c_checked"))
+    step3_credits = float(w4.get("step3") or 0)
+    step4a = float(w4.get("step4a") or 0)
+    step4b = float(w4.get("step4b") or 0)
+    step4c = float(w4.get("step4c") or 0)
     annualized = gross * pay_periods
     adjusted_annual = max(
         0.0,
@@ -212,8 +214,9 @@ def _compute_fit(gross: float, employee: ReportRow, schedules: Iterable[ReportRo
 def _compute_taxes(
     gross: float, employee: ReportRow, ytd_gross: float | None, schedules: Iterable[ReportRow]
 ) -> Dict[str, float]:
-    w4_exempt = employee.get("w4", {}).get("tax_exempt")
-    tax_exemptions = employee.get("tax_exemptions", {})
+    w4 = employee.get("w4") or {}
+    w4_exempt = w4.get("tax_exempt")
+    tax_exemptions = employee.get("tax_exemptions") or {}
     fica_exempt = bool(tax_exemptions.get("fica_exempt"))
     ss_only_exempt = bool(tax_exemptions.get("ss_only_exempt"))
     fit = 0.0 if w4_exempt else _compute_fit(gross, employee, schedules)
