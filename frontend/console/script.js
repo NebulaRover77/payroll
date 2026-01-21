@@ -27,6 +27,37 @@ const state = {
   timeEntries: [],
   payrollRuns: [],
   users: [],
+  companySettings: {
+    legalName: 'Nebula Industries LLC',
+    dbaName: 'Nebula Payroll',
+    ein: '12-3456789',
+    phone: '(415) 555-0199',
+    email: 'payroll@nebula.com',
+    address1: '455 Stellar Way',
+    address2: 'Suite 900',
+    city: 'San Francisco',
+    state: 'CA',
+    zip: '94105',
+    website: 'nebula.com',
+    logo: '',
+    payorBank: 'Lunar Federal Bank',
+    payorLast4: '1027',
+    template: 'detailed',
+    paperSize: 'letter',
+    orientation: 'portrait',
+    delivery: 'print',
+    marginTop: 0.5,
+    marginRight: 0.5,
+    marginBottom: 0.5,
+    marginLeft: 0.5,
+    includeLogo: 'yes',
+    includeYtd: 'yes',
+    includeDept: 'yes',
+    includeSignature: 'yes',
+    stubPrefix: 'NP-',
+    stubNumber: 1021,
+    footerNote: 'Need help? Contact payroll@nebula.com',
+  },
 };
 
 async function probeApi() {
@@ -412,6 +443,109 @@ function renderReports() {
   });
 }
 
+function renderCompanySettings() {
+  const preview = $('company-preview');
+  if (!preview) return;
+
+  const settings = state.companySettings;
+  const addressLines = [settings.address1, settings.address2].filter(Boolean);
+  const cityLine = [settings.city, settings.state, settings.zip].filter(Boolean).join(' ');
+  const contact = [settings.phone, settings.email, settings.website].filter(Boolean).join(' · ');
+  const stubId = `${settings.stubPrefix || ''}${settings.stubNumber || ''}`.trim();
+
+  preview.innerHTML = `
+    <h3>Pay stub print profile</h3>
+    <p class="strong">${settings.legalName || 'Company name'}</p>
+    <p class="muted small">${settings.dbaName || 'DBA'} · EIN ${settings.ein || '—'}</p>
+    <p class="muted small">${[...addressLines, cityLine].filter(Boolean).join(', ') || '—'}</p>
+    <p class="muted small">${contact || '—'}</p>
+    <ul class="settings-list">
+      <li><strong>Template</strong><span>${settings.template}</span></li>
+      <li><strong>Paper</strong><span>${settings.paperSize} · ${settings.orientation}</span></li>
+      <li><strong>Margins</strong><span>${settings.marginTop} / ${settings.marginRight} / ${settings.marginBottom} / ${settings.marginLeft} in</span></li>
+      <li><strong>Delivery</strong><span>${settings.delivery}</span></li>
+      <li><strong>Show logo</strong><span>${settings.includeLogo}</span></li>
+      <li><strong>Include YTD</strong><span>${settings.includeYtd}</span></li>
+      <li><strong>Department line</strong><span>${settings.includeDept}</span></li>
+      <li><strong>Signature line</strong><span>${settings.includeSignature}</span></li>
+      <li><strong>Stub number</strong><span>${stubId || '—'}</span></li>
+      <li><strong>Payor bank</strong><span>${settings.payorBank || '—'} ••••${settings.payorLast4 || '—'}</span></li>
+    </ul>
+    <p class="muted small">${settings.footerNote || 'No footer note configured.'}</p>
+  `;
+}
+
+function syncCompanyForm() {
+  const form = $('company-form');
+  if (!form) return;
+  const settings = state.companySettings;
+
+  form.legalName.value = settings.legalName ?? '';
+  form.dbaName.value = settings.dbaName ?? '';
+  form.ein.value = settings.ein ?? '';
+  form.phone.value = settings.phone ?? '';
+  form.email.value = settings.email ?? '';
+  form.address1.value = settings.address1 ?? '';
+  form.address2.value = settings.address2 ?? '';
+  form.city.value = settings.city ?? '';
+  form.state.value = settings.state ?? '';
+  form.zip.value = settings.zip ?? '';
+  form.website.value = settings.website ?? '';
+  form.logo.value = settings.logo ?? '';
+  form.payorBank.value = settings.payorBank ?? '';
+  form.payorLast4.value = settings.payorLast4 ?? '';
+  form.template.value = settings.template ?? 'detailed';
+  form.paperSize.value = settings.paperSize ?? 'letter';
+  form.orientation.value = settings.orientation ?? 'portrait';
+  form.delivery.value = settings.delivery ?? 'print';
+  form.marginTop.value = settings.marginTop ?? 0;
+  form.marginRight.value = settings.marginRight ?? 0;
+  form.marginBottom.value = settings.marginBottom ?? 0;
+  form.marginLeft.value = settings.marginLeft ?? 0;
+  form.includeLogo.value = settings.includeLogo ?? 'yes';
+  form.includeYtd.value = settings.includeYtd ?? 'yes';
+  form.includeDept.value = settings.includeDept ?? 'yes';
+  form.includeSignature.value = settings.includeSignature ?? 'yes';
+  form.stubPrefix.value = settings.stubPrefix ?? '';
+  form.stubNumber.value = settings.stubNumber ?? '';
+  form.footerNote.value = settings.footerNote ?? '';
+}
+
+function updateCompanySettings(formData) {
+  state.companySettings = {
+    ...state.companySettings,
+    legalName: formData.get('legalName')?.trim() || '',
+    dbaName: formData.get('dbaName')?.trim() || '',
+    ein: formData.get('ein')?.trim() || '',
+    phone: formData.get('phone')?.trim() || '',
+    email: formData.get('email')?.trim() || '',
+    address1: formData.get('address1')?.trim() || '',
+    address2: formData.get('address2')?.trim() || '',
+    city: formData.get('city')?.trim() || '',
+    state: formData.get('state')?.trim() || '',
+    zip: formData.get('zip')?.trim() || '',
+    website: formData.get('website')?.trim() || '',
+    logo: formData.get('logo')?.trim() || '',
+    payorBank: formData.get('payorBank')?.trim() || '',
+    payorLast4: formData.get('payorLast4')?.trim() || '',
+    template: formData.get('template') || 'detailed',
+    paperSize: formData.get('paperSize') || 'letter',
+    orientation: formData.get('orientation') || 'portrait',
+    delivery: formData.get('delivery') || 'print',
+    marginTop: Number(formData.get('marginTop')) || 0,
+    marginRight: Number(formData.get('marginRight')) || 0,
+    marginBottom: Number(formData.get('marginBottom')) || 0,
+    marginLeft: Number(formData.get('marginLeft')) || 0,
+    includeLogo: formData.get('includeLogo') || 'yes',
+    includeYtd: formData.get('includeYtd') || 'yes',
+    includeDept: formData.get('includeDept') || 'yes',
+    includeSignature: formData.get('includeSignature') || 'yes',
+    stubPrefix: formData.get('stubPrefix')?.trim() || '',
+    stubNumber: Number(formData.get('stubNumber')) || '',
+    footerNote: formData.get('footerNote')?.trim() || '',
+  };
+}
+
 function attachHandlers() {
   $('user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -557,6 +691,24 @@ function attachHandlers() {
     document.querySelector('a[href="#employees"]').scrollIntoView({ behavior: 'smooth' });
   });
 
+  const companyForm = $('company-form');
+  if (companyForm) {
+    companyForm.addEventListener('input', (e) => {
+      if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+      updateCompanySettings(new FormData(companyForm));
+      renderCompanySettings();
+    });
+
+    companyForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      updateCompanySettings(new FormData(companyForm));
+      renderCompanySettings();
+      setStatus('Company settings saved locally.', 'success');
+    });
+  }
+
   const navToggle = document.querySelector('.nav-toggle');
   const navLinks = document.querySelector('.nav-links');
 
@@ -593,6 +745,8 @@ async function init() {
   renderReports();
   renderUsers();
   renderPreview();
+  syncCompanyForm();
+  renderCompanySettings();
 
   $('time-date').value = localISODate();
 
