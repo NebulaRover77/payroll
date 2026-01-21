@@ -286,10 +286,11 @@ def build_stub_context(
     net_pay = max(0.0, earnings["gross"] - taxes["total_employee_taxes"])
     ytd_net = max(0.0, ytd_gross - (ytd_taxes["fit"] + ytd_taxes["ss"] + ytd_taxes["medicare"]))
     company = setup.get("company") or {}
+    addresses = setup.get("addresses") or []
     employer_address = _format_address(
         next(
-            (address for address in setup.get("addresses", []) if address.get("type") == "legal"),
-            setup.get("addresses", [None])[0],
+            (address for address in addresses if address.get("type") == "legal"),
+            addresses[0] if addresses else None,
         )
     )
     pay_rate_label = (
