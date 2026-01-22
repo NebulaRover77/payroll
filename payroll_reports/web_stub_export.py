@@ -85,10 +85,14 @@ def _format_date(value: str | None) -> str:
     try:
         parsed = date.fromisoformat(value)
     except ValueError:
+        date_part = value.split("T")[0]
         try:
-            parsed = datetime.fromisoformat(value).date()
+            parsed = date.fromisoformat(date_part)
         except ValueError:
-            return "—"
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+            except ValueError:
+                return "—"
     return parsed.strftime("%b %d, %Y")
 
 
