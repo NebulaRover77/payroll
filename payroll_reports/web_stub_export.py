@@ -29,12 +29,13 @@ STANDARD_DEDUCTION = {"married": 12900, "single": 8600, "head": 8600}
 @dataclass(frozen=True)
 class StubContext:
     employer_name: str
-    employer_address: str
+    employer_address_line1: str
+    employer_address_line2: str
     employer_phone: str
     employer_fein: str
     employee_name: str
-    employee_id: str
-    employee_address: str
+    employee_address_line1: str
+    employee_address_line2: str
     pay_date: str
     pay_period: str
     pay_rate_label: str
@@ -66,6 +67,16 @@ def _format_address(address: Dict[str, Any] | None) -> str:
         address.get("postalCode") or address.get("postal_code"),
     ]
     return " ".join(filter(None, parts)) or "—"
+
+
+def _format_address_lines(address: Dict[str, Any] | None) -> Tuple[str, str]:
+    if not address:
+        return "—", "—"
+    line1 = " ".join(filter(None, [address.get("line1"), address.get("line2")])) or "—"
+    line2 = ", ".join(filter(None, [address.get("city"), address.get("state")]))
+    postal = address.get("postalCode") or address.get("postal_code")
+    line2 = " ".join(filter(None, [line2, postal])) or "—"
+    return line1, line2
 
 
 def _format_date(value: str | None) -> str:
@@ -355,6 +366,21 @@ def build_stub_context(
             addresses[0] if addresses else None,
         )
     )
+    employer_address_line1, employer_address_line2 = _format_address_lines(
+        next(
+            (address for address in addresses if address.get("type") == "legal"),
+            addresses[0] if addresses else None,
+        )
+    )
+    employee_address_line1, employee_address_line2 = _format_address_lines(
+        {
+            "line1": employee.get("address_line1"),
+            "line2": employee.get("address_line2"),
+            "city": employee.get("city"),
+            "state": employee.get("state"),
+            "postalCode": employee.get("postal_code"),
+        }
+    )
     pay_rate_label = (
         f"{_money(earnings['rate'])} per pay period"
         if employee.get("pay_rate_type") == "period"
@@ -365,6 +391,9 @@ def build_stub_context(
         ("Overtime pay", current_earnings["overtime"], ytd_earnings["overtime"]),
         ("Holiday pay", current_earnings["holiday"], ytd_earnings["holiday"]),
         ("PTO pay", current_earnings["pto"], ytd_earnings["pto"]),
+    ]
+    earnings_rows = [
+        row for row in earnings_rows if not (abs(row[1]) < 0.005 and abs(row[2]) < 0.005)
     ]
     deduction_rows: List[Tuple[str, float, float]] = [
         ("Federal withholding", taxes["fit"], ytd_taxes["fit"]),
@@ -379,26 +408,22 @@ def build_stub_context(
             ("401(k) contribution", 0.0, 0.0),
         ]
     )
+    deduction_rows = [
+        row for row in deduction_rows if not (abs(row[1]) < 0.005 and abs(row[2]) < 0.005)
+    ]
     total_deductions = sum(item[1] for item in deduction_rows)
     ytd_total_deductions = sum(item[2] for item in deduction_rows)
     net_pay = max(0.0, earnings["gross"] - total_deductions)
     ytd_net = max(0.0, ytd_gross - ytd_total_deductions)
     return StubContext(
         employer_name=company.get("legalName") or "Company",
-        employer_address=employer_address,
+        employer_address_line1=employer_address_line1 or employer_address or "—",
+        employer_address_line2=employer_address_line2 or "—",
         employer_phone=(company.get("contact") or {}).get("phone") or "—",
         employer_fein=company.get("ein") or "—",
         employee_name=employee.get("name") or "Employee",
-        employee_id=employee.get("id") or "—",
-        employee_address=_format_address(
-            {
-                "line1": employee.get("address_line1"),
-                "line2": employee.get("address_line2"),
-                "city": employee.get("city"),
-                "state": employee.get("state"),
-                "postalCode": employee.get("postal_code"),
-            }
-        ),
+        employee_address_line1=employee_address_line1,
+        employee_address_line2=employee_address_line2,
         pay_date=_format_date(entry.get("paid_at") or entry.get("end_date")),
         pay_period=f"{_format_date(entry.get('start_date'))} - {_format_date(entry.get('end_date'))}",
         pay_rate_label=pay_rate_label,
@@ -426,15 +451,16 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
             [
                 Paragraph(
                     (
-                        f"<b>{context.employer_name}</b><br/>{context.employer_address}<br/>"
+                        f"<b>{context.employer_name}</b><br/>{context.employer_address_line1}<br/>"
+                        f"{context.employer_address_line2}<br/>"
                         f"{context.employer_phone}<br/>FEIN: {context.employer_fein}"
                     ),
                     body_style,
                 ),
                 Paragraph(
                     (
-                        f"<b>{context.employee_name}</b><br/>Employee ID: {context.employee_id}<br/>"
-                        f"{context.employee_address}"
+                        f"<b>{context.employee_name}</b><br/>{context.employee_address_line1}<br/>"
+                        f"{context.employee_address_line2}"
                     ),
                     body_style,
                 ),
