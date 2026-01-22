@@ -445,7 +445,7 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
     header_style = ParagraphStyle("stub_header", parent=styles["Heading3"], fontSize=11)
     body_style = ParagraphStyle("stub_body", parent=styles["Normal"], fontSize=9.5)
 
-    story: List[Any] = [Paragraph("PAY STUB", styles["Title"])]
+    story: List[Any] = [Paragraph("Earnings Statement", styles["Title"])]
     header_table = Table(
         [
             [
