@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -29,12 +29,13 @@ STANDARD_DEDUCTION = {"married": 12900, "single": 8600, "head": 8600}
 @dataclass(frozen=True)
 class StubContext:
     employer_name: str
-    employer_address: str
+    employer_address_line1: str
+    employer_address_line2: str
     employer_phone: str
     employer_fein: str
     employee_name: str
-    employee_id: str
-    employee_address: str
+    employee_address_line1: str
+    employee_address_line2: str
     pay_date: str
     pay_period: str
     pay_rate_label: str
@@ -44,6 +45,10 @@ class StubContext:
     ytd_gross: float
     ytd_taxes: float
     ytd_net: float
+    earnings_rows: List[Tuple[str, float, float]]
+    deduction_rows: List[Tuple[str, float, float]]
+    total_deductions: float
+    ytd_total_deductions: float
 
 
 def _money(value: float | None) -> str:
@@ -64,13 +69,30 @@ def _format_address(address: Dict[str, Any] | None) -> str:
     return " ".join(filter(None, parts)) or "—"
 
 
+def _format_address_lines(address: Dict[str, Any] | None) -> Tuple[str, str]:
+    if not address:
+        return "—", "—"
+    line1 = " ".join(filter(None, [address.get("line1"), address.get("line2")])) or "—"
+    line2 = ", ".join(filter(None, [address.get("city"), address.get("state")]))
+    postal = address.get("postalCode") or address.get("postal_code")
+    line2 = " ".join(filter(None, [line2, postal])) or "—"
+    return line1, line2
+
+
 def _format_date(value: str | None) -> str:
     if not value:
         return "—"
     try:
         parsed = date.fromisoformat(value)
     except ValueError:
-        return "—"
+        date_part = value.split("T")[0]
+        try:
+            parsed = date.fromisoformat(date_part)
+        except ValueError:
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+            except ValueError:
+                return "—"
     return parsed.strftime("%b %d, %Y")
 
 
@@ -245,7 +267,57 @@ def _compute_earnings(entry: ReportRow, employee: ReportRow, pay_types: Iterable
             {"id": pay_type["id"], "name": pay_type["name"], "hours": hours, "rate": rate, "amount": amount}
         )
     gross = rate if is_salary and total_hours > 0 else sum(line["amount"] for line in earnings_lines)
-    return {"gross": gross, "total_hours": total_hours, "rate": rate}
+    return {"gross": gross, "total_hours": total_hours, "rate": rate, "lines": earnings_lines}
+
+
+def _normalize_earnings_type(type_id: str) -> str | None:
+    alias_map = {
+        "regular": "regular",
+        "overtime": "overtime",
+        "holiday": "holiday",
+        "vacation": "pto",
+        "pto": "pto",
+    }
+    return alias_map.get(type_id)
+
+
+def _sum_earnings_by_type(lines: Iterable[ReportRow]) -> Dict[str, float]:
+    totals = {"regular": 0.0, "overtime": 0.0, "holiday": 0.0, "pto": 0.0}
+    for line in lines:
+        normalized = _normalize_earnings_type(str(line.get("id")))
+        if not normalized:
+            continue
+        totals[normalized] += float(line.get("amount") or 0.0)
+    return totals
+
+
+def _sum_year_to_date_earnings_by_type(
+    entries: Iterable[ReportRow],
+    employee: ReportRow,
+    pay_types: Iterable[ReportRow],
+    schedules: Iterable[ReportRow],
+    through_date: str,
+) -> Dict[str, float]:
+    if not through_date:
+        return {"regular": 0.0, "overtime": 0.0, "holiday": 0.0, "pto": 0.0}
+    year = _year_from_date(through_date)
+    totals = {"regular": 0.0, "overtime": 0.0, "holiday": 0.0, "pto": 0.0}
+    for entry in entries:
+        if entry.get("employee_id") != employee.get("id"):
+            continue
+        entry_end_date = entry.get("end_date")
+        if not entry_end_date:
+            continue
+        if _year_from_date(entry_end_date) != year:
+            continue
+        if entry_end_date > through_date:
+            continue
+        earnings = _compute_earnings(entry, employee, pay_types)
+        totals = {
+            key: totals[key] + value
+            for key, value in _sum_earnings_by_type(earnings.get("lines") or []).items()
+        }
+    return totals
 
 
 def _sum_year_to_date(
@@ -285,12 +357,14 @@ def build_stub_context(
     pay_types = store.get("pay_types") or DEFAULT_PAY_TYPES
     schedules = setup.get("paySchedules") or []
     earnings = _compute_earnings(entry, employee, pay_types)
+    current_earnings = _sum_earnings_by_type(earnings.get("lines") or [])
+    ytd_earnings = _sum_year_to_date_earnings_by_type(
+        store.get("time_entries", []), employee, pay_types, schedules, entry.get("end_date")
+    )
     ytd_gross, ytd_taxes = _sum_year_to_date(
         store.get("time_entries", []), employee, pay_types, schedules, entry.get("end_date")
     )
     taxes = _compute_taxes(earnings["gross"], employee, ytd_gross - earnings["gross"], schedules)
-    net_pay = max(0.0, earnings["gross"] - taxes["total_employee_taxes"])
-    ytd_net = max(0.0, ytd_gross - (ytd_taxes["fit"] + ytd_taxes["ss"] + ytd_taxes["medicare"]))
     company = setup.get("company") or {}
     addresses = setup.get("addresses") or []
     employer_address = _format_address(
@@ -299,27 +373,64 @@ def build_stub_context(
             addresses[0] if addresses else None,
         )
     )
+    employer_address_line1, employer_address_line2 = _format_address_lines(
+        next(
+            (address for address in addresses if address.get("type") == "legal"),
+            addresses[0] if addresses else None,
+        )
+    )
+    employee_address_line1, employee_address_line2 = _format_address_lines(
+        {
+            "line1": employee.get("address_line1"),
+            "line2": employee.get("address_line2"),
+            "city": employee.get("city"),
+            "state": employee.get("state"),
+            "postalCode": employee.get("postal_code"),
+        }
+    )
     pay_rate_label = (
         f"{_money(earnings['rate'])} per pay period"
         if employee.get("pay_rate_type") == "period"
         else f"{_money(earnings['rate'])} per hour"
     )
+    earnings_rows = [
+        ("Regular pay", current_earnings["regular"], ytd_earnings["regular"]),
+        ("Overtime pay", current_earnings["overtime"], ytd_earnings["overtime"]),
+        ("Holiday pay", current_earnings["holiday"], ytd_earnings["holiday"]),
+        ("PTO pay", current_earnings["pto"], ytd_earnings["pto"]),
+    ]
+    earnings_rows = [
+        row for row in earnings_rows if not (abs(row[1]) < 0.005 and abs(row[2]) < 0.005)
+    ]
+    deduction_rows: List[Tuple[str, float, float]] = [
+        ("Federal withholding", taxes["fit"], ytd_taxes["fit"]),
+        ("Social Security", taxes["ss"], ytd_taxes["ss"]),
+        ("Medicare", taxes["medicare"], ytd_taxes["medicare"]),
+    ]
+    if employee.get("state"):
+        deduction_rows.append(("State withholding", 0.0, 0.0))
+    deduction_rows.extend(
+        [
+            ("Health insurance (pre-tax)", 0.0, 0.0),
+            ("401(k) contribution", 0.0, 0.0),
+        ]
+    )
+    deduction_rows = [
+        row for row in deduction_rows if not (abs(row[1]) < 0.005 and abs(row[2]) < 0.005)
+    ]
+    total_deductions = sum(item[1] for item in deduction_rows)
+    ytd_total_deductions = sum(item[2] for item in deduction_rows)
+    net_pay = max(0.0, earnings["gross"] - total_deductions)
+    ytd_net = max(0.0, ytd_gross - ytd_total_deductions)
     return StubContext(
         employer_name=company.get("legalName") or "Company",
-        employer_address=employer_address,
+        employer_address_line1=employer_address_line1 or employer_address or "—",
+        employer_address_line2=employer_address_line2 or "—",
         employer_phone=(company.get("contact") or {}).get("phone") or "—",
         employer_fein=company.get("ein") or "—",
         employee_name=employee.get("name") or "Employee",
-        employee_id=employee.get("id") or "—",
-        employee_address=_format_address(
-            {
-                "line1": employee.get("address_line1"),
-                "line2": employee.get("address_line2"),
-                "city": employee.get("city"),
-                "state": employee.get("state"),
-                "postalCode": employee.get("postal_code"),
-            }
-        ),
+        employee_address_line1=employee_address_line1,
+        employee_address_line2=employee_address_line2,
         pay_date=_format_date(entry.get("paid_at") or entry.get("end_date")),
         pay_period=f"{_format_date(entry.get('start_date'))} - {_format_date(entry.get('end_date'))}",
         pay_rate_label=pay_rate_label,
@@ -329,6 +440,10 @@ def build_stub_context(
         ytd_gross=ytd_gross,
         ytd_taxes=ytd_taxes["fit"] + ytd_taxes["ss"] + ytd_taxes["medicare"],
         ytd_net=ytd_net,
+        earnings_rows=earnings_rows,
+        deduction_rows=deduction_rows,
+        total_deductions=total_deductions,
+        ytd_total_deductions=ytd_total_deductions,
     )
 
 
@@ -337,48 +452,78 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
     header_style = ParagraphStyle("stub_header", parent=styles["Heading3"], fontSize=11)
     body_style = ParagraphStyle("stub_body", parent=styles["Normal"], fontSize=9.5)
 
-    story: List[Any] = [Paragraph("PAY STUB", styles["Title"])]
-    story.append(
-        Table(
+    story: List[Any] = [Paragraph("Earnings Statement", styles["Title"])]
+    fein_line = f"FEIN: {context.employer_fein}" if context.employer_fein != "—" else ""
+    fein_break = "<br/>" if fein_line else ""
+    header_table = Table(
+        [
             [
-                [
-                    Paragraph(
-                        (
-                            f"<b>{context.employer_name}</b><br/>{context.employer_address}<br/>"
-                            f"{context.employer_phone}<br/>FEIN: {context.employer_fein}"
-                        ),
-                        body_style,
+                Paragraph(
+                    (
+                        f"<b>{context.employer_name}</b><br/>{context.employer_address_line1}<br/>"
+                        f"{context.employer_address_line2}<br/>"
+                        f"{context.employer_phone}{fein_break}{fein_line}"
                     ),
-                    Paragraph(
-                        (
-                            f"<b>{context.employee_name}</b><br/>Employee ID: {context.employee_id}<br/>"
-                            f"{context.employee_address}"
-                        ),
-                        body_style,
+                    body_style,
+                ),
+                Paragraph(
+                    (
+                        f"<b>{context.employee_name}</b><br/>{context.employee_address_line1}<br/>"
+                        f"{context.employee_address_line2}"
                     ),
-                ]
-            ],
-            colWidths=[3.35 * inch, 3.35 * inch],
+                    body_style,
+                ),
+            ]
+        ],
+        colWidths=[3.35 * inch, 3.35 * inch],
+    )
+    header_table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]
         )
     )
+    story.append(header_table)
     story.append(HRFlowable(width="100%"))
     story.append(Spacer(1, 8))
-    story.append(
-        Table(
-            [["Pay date", context.pay_date, "Pay period", context.pay_period]],
-            colWidths=[1.0 * inch, 2.5 * inch, 1.0 * inch, 2.2 * inch],
+    metadata_table = Table(
+        [["Pay date", context.pay_date, "Pay period", context.pay_period]],
+        colWidths=[1.05 * inch, 2.35 * inch, 1.05 * inch, 2.35 * inch],
+    )
+    metadata_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                ("BACKGROUND", (0, 0), (0, 0), colors.whitesmoke),
+                ("BACKGROUND", (2, 0), (2, 0), colors.whitesmoke),
+                ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                ("FONTNAME", (2, 0), (2, 0), "Helvetica-Bold"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
         )
     )
+    story.append(metadata_table)
     story.append(Spacer(1, 10))
     story.append(Paragraph("Earnings & Summary", header_style))
     earnings_rows = [
         ["Description", "Current", "YTD"],
-        ["Pay rate", context.pay_rate_label, "—"],
+        *[[label, _money(current), _money(ytd)] for label, current, ytd in context.earnings_rows],
         ["Gross pay", _money(context.gross_pay), _money(context.ytd_gross)],
-        ["Total taxes", _money(context.total_taxes), _money(context.ytd_taxes)],
+        ["Total deductions", _money(context.total_deductions), _money(context.ytd_total_deductions)],
         ["Net pay", _money(context.net_pay), _money(context.ytd_net)],
     ]
     earnings_table = Table(earnings_rows, colWidths=[3.3 * inch, 1.5 * inch, 1.5 * inch])
+    gross_row = 1 + len(context.earnings_rows)
+    total_deductions_row = gross_row + 1
+    net_pay_row = total_deductions_row + 1
     earnings_table.setStyle(
         TableStyle(
             [
@@ -386,8 +531,9 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
-                ("LINEABOVE", (0, -2), (-1, -2), 0.75, colors.black),
-                ("LINEABOVE", (0, -1), (-1, -1), 0.75, colors.black),
+                ("LINEABOVE", (0, gross_row), (-1, gross_row), 0.9, colors.black),
+                ("LINEABOVE", (0, total_deductions_row), (-1, total_deductions_row), 0.9, colors.black),
+                ("LINEABOVE", (0, net_pay_row), (-1, net_pay_row), 0.9, colors.black),
                 ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 6),
                 ("TOPPADDING", (0, 0), (-1, -1), 4),
@@ -400,19 +546,23 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
     story.append(Spacer(1, 12))
     story.append(HRFlowable(width="100%"))
     story.append(Spacer(1, 10))
-    story.append(Paragraph("Taxes (Current vs Year-to-Date)", header_style))
-    tax_rows = [
-        ["Tax", "Current", "YTD"],
-        ["Total employee taxes", _money(context.total_taxes), _money(context.ytd_taxes)],
+    story.append(Paragraph("Itemized Deductions (Current vs Year-to-Date)", header_style))
+    deduction_rows = [
+        ["Deduction", "Current", "YTD"],
+        *[[label, _money(current), _money(ytd)] for label, current, ytd in context.deduction_rows],
+        ["Total deductions", _money(context.total_deductions), _money(context.ytd_total_deductions)],
     ]
-    tax_table = Table(tax_rows, colWidths=[3.3 * inch, 1.5 * inch, 1.5 * inch])
-    tax_table.setStyle(
+    deductions_table = Table(deduction_rows, colWidths=[3.3 * inch, 1.5 * inch, 1.5 * inch])
+    total_row_index = len(deduction_rows) - 1
+    deductions_table.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                ("FONTNAME", (0, total_row_index), (-1, total_row_index), "Helvetica-Bold"),
+                ("LINEABOVE", (0, total_row_index), (-1, total_row_index), 0.9, colors.black),
                 ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 6),
                 ("TOPPADDING", (0, 0), (-1, -1), 4),
@@ -420,7 +570,7 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
             ]
         )
     )
-    story.append(tax_table)
+    story.append(deductions_table)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
