@@ -56,7 +56,7 @@ const state = {
     includeSignature: 'yes',
     stubPrefix: 'NP-',
     stubNumber: 1021,
-    footerNote: 'Need help? Contact payroll@nebula.com',
+    footerNote: '',
   },
 };
 

@@ -45,7 +45,7 @@
                 </div>
                 <div>
                   <label for="ein">EIN</label>
-                  <input id="ein" name="ein" required placeholder="12-3456789" />
+                  <input id="ein" name="ein" placeholder="12-3456789" />
                 </div>
                 <div>
                   <label for="contactName">Payroll contact</label>
@@ -184,7 +184,7 @@
 
               <div style="margin-top: 1rem;">
                 <label for="stubFooterNote">Pay stub footer note</label>
-                <textarea id="stubFooterNote" name="stubFooterNote" rows="3" placeholder="Need help? Contact payroll@nebula.com"></textarea>
+                <textarea id="stubFooterNote" name="stubFooterNote" rows="3" placeholder="Optional footer note"></textarea>
               </div>
 
               <div class="form-grid" style="margin-top: 1rem;">
@@ -205,14 +205,8 @@
             </aside>
 
             <div class="settings-card">
-              <h3>Admin access</h3>
-              <p class="muted" style="margin-top: 0;">An admin token is required to save updates to the server.</p>
-              <div class="form-grid">
-                <div>
-                  <label for="adminTokenInput">Admin token</label>
-                  <input id="adminTokenInput" name="adminTokenInput" type="password" placeholder="Paste admin token" />
-                </div>
-              </div>
+              <h3>Actions</h3>
+              <p class="muted" style="margin-top: 0;">Save updates when you are ready.</p>
               <div class="actions" style="margin-top: 1rem;">
                 <button class="btn primary" type="submit">Save settings</button>
                 <a class="btn ghost" href="/dashboard.html">Back to dashboard</a>
@@ -245,7 +239,6 @@
       const settingsNotice = document.getElementById('settingsNotice');
       const settingsSuccess = document.getElementById('settingsSuccess');
       const settingsPreview = document.getElementById('settingsPreview');
-      const adminTokenInput = document.getElementById('adminTokenInput');
       const addressStateSelect = document.getElementById('addressState');
 
       let setupState = {};
@@ -265,7 +258,7 @@
         includeSignature: 'yes',
         stubPrefix: 'NP-',
         stubNextNumber: 1021,
-        footerNote: 'Need help? Contact payroll@nebula.com',
+        footerNote: '',
         payorBank: 'Lunar Federal Bank',
         payorAccountLast4: '1027'
       };
@@ -273,16 +266,6 @@
       function setMessage(el, message) {
         el.style.display = message ? 'block' : 'none';
         el.textContent = message || '';
-      }
-
-      function getAdminToken() {
-        return adminTokenInput.value || localStorage.getItem('adminToken') || '';
-      }
-
-      function persistAdminToken() {
-        if (adminTokenInput.value) {
-          localStorage.setItem('adminToken', adminTokenInput.value);
-        }
       }
 
       function getLegalAddress(addresses = []) {
@@ -427,13 +410,6 @@
       async function saveSettings() {
         setMessage(settingsNotice, '');
         setMessage(settingsSuccess, '');
-        persistAdminToken();
-        const token = getAdminToken();
-        if (!token) {
-          setMessage(settingsNotice, 'Add an admin token to save company settings.');
-          return;
-        }
-
         const payload = {
           ...setupState,
           company: collectCompany(),
@@ -444,11 +420,10 @@
         };
 
         try {
-          const response = await fetch('/api/admin/setup', {
+          const response = await fetch('/api/setup', {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'X-Admin-Token': token
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload)
           });
@@ -476,11 +451,6 @@
         event.preventDefault();
         saveSettings();
       });
-
-      adminTokenInput.addEventListener('input', persistAdminToken);
-
-      const savedToken = localStorage.getItem('adminToken');
-      if (savedToken) adminTokenInput.value = savedToken;
 
       loadSetup();
     </script>

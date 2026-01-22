@@ -5,7 +5,6 @@ const os = require('os');
 const { spawn } = require('child_process');
 const { randomUUID } = require('crypto');
 const {
-  validateSetup,
   validatePartialSetup,
   EIN_REGEX,
   STATES
@@ -198,6 +197,17 @@ function handleApi(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/setup') {
     const setup = loadSetup();
     return sendJson(res, 200, { setup, payrollEnabled: Boolean(setup.completed) });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/setup') {
+    return parseBody(req)
+      .then((body) => {
+        const result = validatePartialSetup({ company: body.company, addresses: body.addresses });
+        if (!result.valid) return sendJson(res, 400, { error: 'Validation failed', details: result.errors });
+        const saved = saveSetup({ ...body, completed: !!body.completed, currentStep: 'complete' });
+        audit('user', 'setup.upsert', { company: saved.company?.legalName, completed: saved.completed });
+        return sendJson(res, 200, saved);
+      })
+      .catch(() => sendJson(res, 400, { error: 'Invalid JSON payload' }));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/payroll/status') {

@@ -8,7 +8,7 @@ const ZIP_REGEX = /^\d{5}(-\d{4})?$/;
 function validateCompany(company = {}) {
   const errors = {};
   if (!company.legalName) errors.legalName = 'Legal name is required';
-  if (!company.ein || !EIN_REGEX.test(company.ein)) errors.ein = 'EIN must match NN-NNNNNNN';
+  if (company.ein && !EIN_REGEX.test(company.ein)) errors.ein = 'EIN must match NN-NNNNNNN';
   const contact = company.contact || {};
   if (contact.name && contact.name.trim().length === 0) {
     errors.contactName = 'Contact name cannot be blank';
