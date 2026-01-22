@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -85,7 +85,10 @@ def _format_date(value: str | None) -> str:
     try:
         parsed = date.fromisoformat(value)
     except ValueError:
-        return "—"
+        try:
+            parsed = datetime.fromisoformat(value).date()
+        except ValueError:
+            return "—"
     return parsed.strftime("%b %d, %Y")
 
 
