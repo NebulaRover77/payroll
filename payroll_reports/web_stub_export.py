@@ -449,6 +449,8 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
     body_style = ParagraphStyle("stub_body", parent=styles["Normal"], fontSize=9.5)
 
     story: List[Any] = [Paragraph("Earnings Statement", styles["Title"])]
+    fein_line = f"FEIN: {context.employer_fein}" if context.employer_fein != "—" else ""
+    fein_break = "<br/>" if fein_line else ""
     header_table = Table(
         [
             [
@@ -456,7 +458,7 @@ def build_pdf(context: StubContext, output_path: Path) -> None:
                     (
                         f"<b>{context.employer_name}</b><br/>{context.employer_address_line1}<br/>"
                         f"{context.employer_address_line2}<br/>"
-                        f"{context.employer_phone}<br/>FEIN: {context.employer_fein}"
+                        f"{context.employer_phone}{fein_break}{fein_line}"
                     ),
                     body_style,
                 ),
