@@ -142,6 +142,12 @@ tr:hover td { background: rgba(255, 255, 255, 0.03); }
 
 .reports { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .report-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; background: #0f1223; }
+.report-card.report-catalog { display: grid; gap: 10px; }
+.report-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.report-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.report-list li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 6px; }
+.report-list span { color: var(--muted); text-align: right; }
+.report-list .coming-soon { color: var(--warn); }
 .audit-log { display: grid; gap: 10px; max-height: 240px; overflow: auto; }
 .audit-item { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: rgba(255, 255, 255, 0.02); }
 

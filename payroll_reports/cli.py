@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from . import data
+from .data import load_store_data
 from .audit import AuditLogger
 from .pay_stub import export_check_stub_pdf
 from .exporter import export_report
@@ -18,6 +18,13 @@ REPORT_CHOICES = [
     "payment-detail",
     "deductions-taxes-summary",
     "labor-distribution",
+    "payroll-details",
+    "form-940",
+    "form-941",
+    "payroll-tax-liabilities",
+    "tax-deposits",
+    "w2-w3",
+    "electronic-w2",
     "check-stub",
 ]
 
@@ -29,13 +36,15 @@ def parse_date(value: str | None):
 
 
 def run_report(args: argparse.Namespace) -> None:
+    store_path = Path(args.store_path)
+    store_data = load_store_data(store_path)
     if args.report == "check-stub":
         if not args.output:
             raise ValueError("Check stubs must be exported to a PDF file.")
         output_path = Path(args.output)
         if output_path.suffix.lower() != ".pdf":
             raise ValueError("Check stubs are only supported as PDF exports.")
-        export_check_stub_pdf(data.payments, data.employees, output_path)
+        export_check_stub_pdf(store_data.payments, store_data.employees, output_path)
         print(f"Check stubs exported to {output_path}")
     else:
         request = ReportRequest(
@@ -44,8 +53,12 @@ def run_report(args: argparse.Namespace) -> None:
             end_date=parse_date(args.end_date),
             pay_schedules=args.pay_schedule,
             departments=args.department,
+            employee_ids=args.employee_id,
+            group_by=args.group_by,
+            year=args.year,
+            quarter=args.quarter,
         )
-        rows = build_report(request, data.payments)
+        rows = build_report(request, store_data.payments)
         if args.output:
             output_path = Path(args.output)
             export_report(rows, output_path, title=args.report)
@@ -62,6 +75,10 @@ def run_report(args: argparse.Namespace) -> None:
                 "end_date": args.end_date,
                 "pay_schedules": args.pay_schedule,
                 "departments": args.department,
+                "employee_ids": args.employee_id,
+                "group_by": args.group_by,
+                "year": args.year,
+                "quarter": args.quarter,
             },
             "output": args.output or "stdout",
         }
@@ -78,13 +95,19 @@ def add_schedule(args: argparse.Namespace) -> None:
         end_date=args.end_date,
         pay_schedules=args.pay_schedule,
         departments=args.department,
+        employee_ids=args.employee_id,
+        group_by=args.group_by,
+        year=args.year,
+        quarter=args.quarter,
     )
     Scheduler().add_schedule(schedule)
     print(f"Added schedule {schedule.schedule_id} for {schedule.report_type}")
 
 
-def run_schedules(_: argparse.Namespace) -> None:
-    outputs = Scheduler().run_due_schedules(data.payments)
+def run_schedules(args: argparse.Namespace) -> None:
+    store_path = Path(args.store_path)
+    store_data = load_store_data(store_path)
+    outputs = Scheduler().run_due_schedules(store_data.payments)
     if outputs:
         for path in outputs:
             print(f"Generated scheduled report: {path}")
@@ -113,10 +136,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_cmd = subparsers.add_parser("run-report", help="Run a single report")
     run_cmd.add_argument("--report", choices=REPORT_CHOICES, required=True)
+    run_cmd.add_argument("--store-path", default="data/store.json", help="Path to payroll data store")
     run_cmd.add_argument("--start-date")
     run_cmd.add_argument("--end-date")
     run_cmd.add_argument("--pay-schedule", action="append")
     run_cmd.add_argument("--department", action="append")
+    run_cmd.add_argument("--employee-id", action="append")
+    run_cmd.add_argument("--group-by", choices=["pay_date", "employee", "none"])
+    run_cmd.add_argument("--year", type=int)
+    run_cmd.add_argument("--quarter", type=int, choices=[1, 2, 3, 4])
     run_cmd.add_argument("--output", help="Output file (csv or pdf)")
     run_cmd.set_defaults(func=run_report)
 
@@ -128,10 +156,15 @@ def build_parser() -> argparse.ArgumentParser:
     schedule_cmd.add_argument("--end-date")
     schedule_cmd.add_argument("--pay-schedule", action="append")
     schedule_cmd.add_argument("--department", action="append")
+    schedule_cmd.add_argument("--employee-id", action="append")
+    schedule_cmd.add_argument("--group-by", choices=["pay_date", "employee", "none"])
+    schedule_cmd.add_argument("--year", type=int)
+    schedule_cmd.add_argument("--quarter", type=int, choices=[1, 2, 3, 4])
     schedule_cmd.add_argument("--output", required=True, help="Output file (csv or pdf)")
     schedule_cmd.set_defaults(func=add_schedule)
 
     schedule_run_cmd = subparsers.add_parser("schedule-run", help="Run any due schedules")
+    schedule_run_cmd.add_argument("--store-path", default="data/store.json", help="Path to payroll data store")
     schedule_run_cmd.set_defaults(func=run_schedules)
 
     schedule_list_cmd = subparsers.add_parser("schedule-list", help="List schedules")

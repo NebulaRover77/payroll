@@ -24,6 +24,10 @@ class Schedule:
     end_date: str | None = None
     pay_schedules: List[str] | None = None
     departments: List[str] | None = None
+    employee_ids: List[str] | None = None
+    group_by: str | None = None
+    year: int | None = None
+    quarter: int | None = None
 
     def is_due(self, today: date) -> bool:
         if not self.last_run:
@@ -86,6 +90,10 @@ class Scheduler:
                 end_date=end_date,
                 pay_schedules=schedule.pay_schedules,
                 departments=schedule.departments,
+                employee_ids=schedule.employee_ids,
+                group_by=schedule.group_by,
+                year=schedule.year,
+                quarter=schedule.quarter,
             )
             rows = build_report(request, payments)
             output_path = Path(schedule.output_path)
@@ -102,6 +110,10 @@ class Scheduler:
                         "end_date": schedule.end_date,
                         "pay_schedules": schedule.pay_schedules,
                         "departments": schedule.departments,
+                        "employee_ids": schedule.employee_ids,
+                        "group_by": schedule.group_by,
+                        "year": schedule.year,
+                        "quarter": schedule.quarter,
                     },
                 }
             )
