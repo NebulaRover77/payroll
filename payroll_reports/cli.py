@@ -18,6 +18,13 @@ REPORT_CHOICES = [
     "payment-detail",
     "deductions-taxes-summary",
     "labor-distribution",
+    "payroll-details",
+    "form-940",
+    "form-941",
+    "payroll-tax-liabilities",
+    "tax-deposits",
+    "w2-w3",
+    "electronic-w2",
     "check-stub",
 ]
 
@@ -44,6 +51,10 @@ def run_report(args: argparse.Namespace) -> None:
             end_date=parse_date(args.end_date),
             pay_schedules=args.pay_schedule,
             departments=args.department,
+            employee_ids=args.employee_id,
+            group_by=args.group_by,
+            year=args.year,
+            quarter=args.quarter,
         )
         rows = build_report(request, data.payments)
         if args.output:
@@ -62,6 +73,10 @@ def run_report(args: argparse.Namespace) -> None:
                 "end_date": args.end_date,
                 "pay_schedules": args.pay_schedule,
                 "departments": args.department,
+                "employee_ids": args.employee_id,
+                "group_by": args.group_by,
+                "year": args.year,
+                "quarter": args.quarter,
             },
             "output": args.output or "stdout",
         }
@@ -78,6 +93,10 @@ def add_schedule(args: argparse.Namespace) -> None:
         end_date=args.end_date,
         pay_schedules=args.pay_schedule,
         departments=args.department,
+        employee_ids=args.employee_id,
+        group_by=args.group_by,
+        year=args.year,
+        quarter=args.quarter,
     )
     Scheduler().add_schedule(schedule)
     print(f"Added schedule {schedule.schedule_id} for {schedule.report_type}")
@@ -117,6 +136,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument("--end-date")
     run_cmd.add_argument("--pay-schedule", action="append")
     run_cmd.add_argument("--department", action="append")
+    run_cmd.add_argument("--employee-id", action="append")
+    run_cmd.add_argument("--group-by", choices=["pay_date", "employee", "none"])
+    run_cmd.add_argument("--year", type=int)
+    run_cmd.add_argument("--quarter", type=int, choices=[1, 2, 3, 4])
     run_cmd.add_argument("--output", help="Output file (csv or pdf)")
     run_cmd.set_defaults(func=run_report)
 
@@ -128,6 +151,10 @@ def build_parser() -> argparse.ArgumentParser:
     schedule_cmd.add_argument("--end-date")
     schedule_cmd.add_argument("--pay-schedule", action="append")
     schedule_cmd.add_argument("--department", action="append")
+    schedule_cmd.add_argument("--employee-id", action="append")
+    schedule_cmd.add_argument("--group-by", choices=["pay_date", "employee", "none"])
+    schedule_cmd.add_argument("--year", type=int)
+    schedule_cmd.add_argument("--quarter", type=int, choices=[1, 2, 3, 4])
     schedule_cmd.add_argument("--output", required=True, help="Output file (csv or pdf)")
     schedule_cmd.set_defaults(func=add_schedule)
 

@@ -13,6 +13,7 @@ def filter_payments(
     end_date: Optional[date] = None,
     pay_schedules: Optional[List[str]] = None,
     departments: Optional[List[str]] = None,
+    employee_ids: Optional[List[str]] = None,
 ) -> List[PaymentRecord]:
     """Filter payment records by date range, pay schedules, and departments."""
 
@@ -24,6 +25,8 @@ def filter_payments(
         if pay_schedules and payment.get("pay_schedule") not in pay_schedules:
             return False
         if departments and payment.get("department") not in departments:
+            return False
+        if employee_ids and payment.get("employee_id") not in employee_ids:
             return False
         return True
 
