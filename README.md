@@ -43,6 +43,8 @@ API is typically at:
 - http://localhost:8000
 Health check:
 - http://localhost:8000/health
+Trace UI (Jaeger):
+- http://localhost:16686
 
 Notes:
 - Backup/restore helpers: `scripts/backup.sh` and `scripts/restore.sh` (use `PAYROLL_DATABASE_URL`).
