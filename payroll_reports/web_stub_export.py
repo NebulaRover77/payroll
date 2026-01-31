@@ -251,12 +251,21 @@ def _compute_taxes(
     return {"fit": fit, "ss": ss, "medicare": medicare, "total_employee_taxes": total_employee_taxes}
 
 
+def _resolve_pay_rate(entry: ReportRow, employee: ReportRow) -> Tuple[float, str]:
+    pay_rate_type = entry.get("pay_rate_type") or employee.get("pay_rate_type") or ""
+    rate_value = entry.get("pay_rate")
+    if rate_value is None:
+        rate_value = employee.get("pay_rate")
+    rate = float(rate_value or 0.0)
+    return rate, pay_rate_type
+
+
 def _compute_earnings(entry: ReportRow, employee: ReportRow, pay_types: Iterable[ReportRow]) -> Dict[str, Any]:
     hours = entry.get("hours") or {}
     hours_by_type = {ptype["id"]: float(hours.get(ptype["id"], 0)) for ptype in pay_types}
     total_hours = sum(hours_by_type.values())
-    rate = float(employee.get("pay_rate") or 0.0)
-    is_salary = employee.get("pay_rate_type") == "period"
+    rate, pay_rate_type = _resolve_pay_rate(entry, employee)
+    is_salary = pay_rate_type == "period"
     earnings_lines = []
     for pay_type in pay_types:
         hours = hours_by_type.get(pay_type["id"], 0.0)
@@ -267,7 +276,13 @@ def _compute_earnings(entry: ReportRow, employee: ReportRow, pay_types: Iterable
             {"id": pay_type["id"], "name": pay_type["name"], "hours": hours, "rate": rate, "amount": amount}
         )
     gross = rate if is_salary and total_hours > 0 else sum(line["amount"] for line in earnings_lines)
-    return {"gross": gross, "total_hours": total_hours, "rate": rate, "lines": earnings_lines}
+    return {
+        "gross": gross,
+        "total_hours": total_hours,
+        "rate": rate,
+        "pay_rate_type": pay_rate_type,
+        "lines": earnings_lines,
+    }
 
 
 def _normalize_earnings_type(type_id: str) -> str | None:
@@ -390,7 +405,7 @@ def build_stub_context(
     )
     pay_rate_label = (
         f"{_money(earnings['rate'])} per pay period"
-        if employee.get("pay_rate_type") == "period"
+        if earnings.get("pay_rate_type") == "period"
         else f"{_money(earnings['rate'])} per hour"
     )
     earnings_rows = [

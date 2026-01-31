@@ -594,11 +594,19 @@ function handleApi(req, res) {
         const store = readStore();
         const entries = Array.isArray(store.time_entries) ? store.time_entries : [];
         const payrollRuns = Array.isArray(store.payroll_runs) ? store.payroll_runs : [];
+        const employees = Array.isArray(store.employees) ? store.employees : [];
         let updated = 0;
         entries.forEach((entry) => {
           if (entry.start_date === startDate && entry.end_date === endDate && entry.status !== 'paid') {
             entry.status = 'paid';
             entry.paid_at = new Date().toISOString();
+            const employee = employees.find((item) => item.id === entry.employee_id);
+            if (employee) {
+              const rate = Number(employee.pay_rate);
+              entry.pay_rate = Number.isFinite(rate) ? Math.round(rate * 100) / 100 : 0;
+              entry.pay_rate_type = employee.pay_rate_type || '';
+              entry.pay_rate_locked_at = entry.pay_rate_locked_at || entry.paid_at;
+            }
             updated += 1;
           }
         });

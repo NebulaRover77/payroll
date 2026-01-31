@@ -6,6 +6,7 @@ A playground/monorepo for a payroll platform: a FastAPI backend, an Express-base
 - Security: `docs/SECURITY_DESIGN.md`
 - Feature requirements (paystubs/W-2, delivery, compliance): `docs/payroll_features.md`
 - Payroll run design: `docs/payroll_run_design.md`
+- Database schema: `docs/database_schema.md`
 - Architecture notes: `docs/ARCHITECTURE.md`
 - Feature plan: `FEATURE_PLAN.md`
 
